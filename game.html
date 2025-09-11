@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cosmic Rainbow Snake 🐍</title>
+<style>
+body {
+  margin: 0;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  background: black;
+  color: white;
+  overflow: hidden;
+}
+h1 {
+  font-size: 2rem;
+  margin-bottom: 5px;
+  text-shadow: 2px 2px 5px rgba(0,0,0,0.7);
+}
+#settings { margin-bottom: 10px; }
+select, button { padding: 5px 10px; margin-left: 5px; font-size: 1rem; }
+canvas { border: 2px solid white; border-radius: 10px; box-shadow: 0 0 15px rgba(255,255,255,0.4); }
+#scoreboard { display: flex; justify-content: space-between; width: 600px; margin-top: 10px; font-size: 1.1rem; }
+#instructions { font-size: 0.9rem; width: 600px; margin-top: 5px; text-align: center; opacity: 0.9; }
+#restartBtn { margin-top: 10px; padding: 8px 15px; font-size: 1rem; border:none; border-radius:5px; background:#ff4d4d; color:white; cursor:pointer; display:none; }
+#restartBtn:hover { background:#e63939; }
+</style>
+</head>
+<body>
+<h1>Cosmic Rainbow Snake 🐍</h1>
+<div id="settings">
+  <label>Difficulty: <select id="difficulty">
+    <option value="veryEasy">Very Easy</option>
+    <option value="easy">Easy</option>
+    <option value="medium" selected>Medium</option>
+    <option value="hard">Hard</option>
+    <option value="veryHard">Very Hard</option>
+    <option value="extreme">Extreme</option>
+  </select></label>
+  <label>Snake Color: <select id="snakeColor">
+    <option value="blue">Blue</option>
+    <option value="white">White</option>
+    <option value="green">Green</option>
+    <option value="yellow">Yellow</option>
+    <option value="pink">Pink</option>
+    <option value="purple">Purple</option>
+  </select></label>
+  <button id="startBtn">Start Game</button>
+</div>
+<canvas id="gameCanvas" width="600" height="400"></canvas>
+<div id="scoreboard">
+  <div id="score">Score: 0</div>
+  <div id="highScore">High Score: 0</div>
+</div>
+<div id="instructions">
+Use Arrow Keys (⬅️⬆️➡️⬇️) to move.<br>
+Eat rainbow food to grow and increase score.<br>
+Avoid red obstacles that appear randomly in space!<br>
+Difficulty affects snake speed, obstacle frequency, and map size.
+</div>
+<button id="restartBtn" onclick="startGame()">Restart Game</button>
+
+<script>
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const startBtn = document.getElementById('startBtn');
+const restartBtn = document.getElementById('restartBtn');
+const scoreEl = document.getElementById('score');
+const highScoreEl = document.getElementById('highScore');
+
+let snake = [], food, obstacles = [], score=0, highScore=0, direction=null, interval, speed, box=20;
+let snakeColor = 'blue';
+let obstacleIntervals = [];
+
+const difficulties = {
+  veryEasy: { width:800, height:500, speed:150, obstacleCount:1, obstacleTime:7000 },
+  easy: { width:700, height:450, speed:130, obstacleCount:1, obstacleTime:6000 },
+  medium: { width:600, height:400, speed:100, obstacleCount:2, obstacleTime:5000 },
+  hard: { width:500, height:350, speed:80, obstacleCount:2, obstacleTime:4000 },
+  veryHard: { width:400, height:300, speed:60, obstacleCount:3, obstacleTime:3000 },
+  extreme: { width:350, height:250, speed:50, obstacleCount:3, obstacleTime:2500 }
+};
+
+highScore = localStorage.getItem('snakeHighScore') || 0;
+highScoreEl.innerText = 'High Score: ' + highScore;
+
+startBtn.addEventListener('click', startGame);
+
+function startGame(){
+  const diff = document.getElementById('difficulty').value;
+  canvas.width = difficulties[diff].width;
+  canvas.height = difficulties[diff].height;
+  speed = difficulties[diff].speed;
+  obstacleCount = difficulties[diff].obstacleCount;
+  obstacleTime = difficulties[diff].obstacleTime;
+
+  snakeColor = document.getElementById('snakeColor').value;
+
+  initGame();
+  startBtn.style.display='none';
+}
+
+function initGame(){
+  snake = [{x: Math.floor(canvas.width/2/box)*box, y: Math.floor(canvas.height/2/box)*box}];
+  direction = null;
+  food = spawnFood();
+  obstacles = [];
+  score = 0;
+  scoreEl.innerText = 'Score: 0';
+  restartBtn.style.display='none';
+
+  if(interval) clearInterval(interval);
+  interval = setInterval(draw, speed);
+
+  // Clear previous obstacle intervals
+  obstacleIntervals.forEach(t => clearInterval(t));
+  obstacleIntervals = [];
+  spawnObstacles();
+}
+
+function spawnFood(){
+  return { x: Math.floor(Math.random()*(canvas.width/box))*box, y: Math.floor(Math.random()*(canvas.height/box))*box };
+}
+
+function spawnObstacles(){
+  const diff = document.getElementById('difficulty').value;
+  const timer = setInterval(() => {
+    obstacles = [];
+    const count = difficulties[diff].obstacleCount;
+    for(let i=0;i<count;i++){
+      obstacles.push({
+        x: Math.floor(Math.random()*(canvas.width/box))*box,
+        y: Math.floor(Math.random()*(canvas.height/box))*box,
+        spawnTime: Date.now(),
+        lifetime: difficulties[diff].obstacleTime + Math.random()*1000
+      });
+    }
+  }, difficulties[diff].obstacleTime);
+  obstacleIntervals.push(timer);
+}
+
+document.addEventListener('keydown', e=>{
+  if(e.key==='ArrowLeft' && direction!=='RIGHT') direction='LEFT';
+  if(e.key==='ArrowRight' && direction!=='LEFT') direction='RIGHT';
+  if(e.key==='ArrowUp' && direction!=='DOWN') direction='UP';
+  if(e.key==='ArrowDown' && direction!=='UP') direction='DOWN';
+});
+
+let particles=[];
+function createParticles(x,y){
+  for(let i=0;i<10;i++){
+    particles.push({x:x+box/2, y:y+box/2, dx:(Math.random()-0.5)*2, dy:(Math.random()-0.5)*2, life:20});
+  }
+}
+function drawParticles(){
+  for(let i=0;i<particles.length;i++){
+    ctx.fillStyle=`rgba(255,255,255,${particles[i].life/20})`;
+    ctx.beginPath();
+    ctx.arc(particles[i].x, particles[i].y, 3,0,2*Math.PI);
+    ctx.fill();
+    particles[i].x += particles[i].dx*2;
+    particles[i].y += particles[i].dy*2;
+    particles[i].life--;
+  }
+  particles = particles.filter(p=>p.life>0);
+}
+
+let stars=[];
+for(let i=0;i<100;i++) stars.push({x:Math.random()*canvas.width, y:Math.random()*canvas.height, size:Math.random()*2+1});
+let rockets=[];
+for(let i=0;i<3;i++) rockets.push({x:Math.random()*canvas.width, y:Math.random()*canvas.height, dx:(Math.random()-0.5)*1, dy:-1});
+
+function drawBackground(){
+  ctx.fillStyle='black';
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+  ctx.fillStyle='white';
+  stars.forEach(s=>ctx.fillRect(s.x,s.y,s.size,s.size));
+  rockets.forEach(r=>{
+    ctx.fillStyle='orange';
+    ctx.fillRect(r.x,r.y,5,10);
+    r.x += r.dx; r.y += r.dy;
+    if(r.y<0) r.y=canvas.height; if(r.x<0) r.x=canvas.width; if(r.x>canvas.width) r.x=0;
+  });
+}
+
+function draw(){
+  drawBackground();
+
+  const gradient = ctx.createRadialGradient(food.x+box/2, food.y+box/2, 2, food.x+box/2, food.y+box/2, box/2);
+  gradient.addColorStop(0,'red');
+  gradient.addColorStop(0.2,'orange');
+  gradient.addColorStop(0.4,'yellow');
+  gradient.addColorStop(0.6,'green');
+  gradient.addColorStop(0.8,'blue');
+  gradient.addColorStop(1,'violet');
+  ctx.fillStyle = gradient;
+  ctx.beginPath();
+  ctx.arc(food.x+box/2, food.y+box/2, box/2,0,2*Math.PI);
+  ctx.fill();
+
+  // Remove expired obstacles
+  obstacles = obstacles.filter(o => Date.now() - o.spawnTime < o.lifetime);
+  obstacles.forEach(o=>{
+    ctx.fillStyle='red';
+    ctx.fillRect(o.x,o.y,box,box);
+  });
+
+  snake.forEach((seg,i)=>{
+    ctx.fillStyle = snakeColor;
+    ctx.fillRect(seg.x,seg.y,box,box);
+  });
+
+  if(!direction) return;
+  let snakeX=snake[0].x, snakeY=snake[0].y;
+  if(direction==='LEFT') snakeX-=box;
+  if(direction==='RIGHT') snakeX+=box;
+  if(direction==='UP') snakeY-=box;
+  if(direction==='DOWN') snakeY+=box;
+
+  if(Math.abs(snakeX-food.x)<1 && Math.abs(snakeY-food.y)<1){
+    score++; scoreEl.innerText='Score: '+score;
+    food = spawnFood();
+    createParticles(snakeX,snakeY);
+  } else snake.pop();
+
+  let newHead={x:snakeX,y:snakeY};
+
+  if(collide(newHead,snake) || snakeX<0 || snakeY<0 || snakeX>=canvas.width || snakeY>=canvas.height || collide(newHead,obstacles)){
+    gameOver();
+    return;
+  }
+  snake.unshift(newHead);
+
+  drawParticles();
+}
+
+function collide(head, arr){
+  for(let i=0;i<arr.length;i++) if(head.x===arr[i].x && head.y===arr[i].y) return true;
+  return false;
+}
+
+function gameOver(){
+  clearInterval(interval);
+  obstacleIntervals.forEach(t=>clearInterval(t));
+  restartBtn.style.display='inline-block';
+  if(score>highScore){
+    highScore=score;
+    localStorage.setItem('snakeHighScore',highScore);
+    highScoreEl.innerText='High Score: '+highScore;
+  }
+  alert('Game Over! Your score: '+score);
+}
+</script>
+</body>
+</html>
