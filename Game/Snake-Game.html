@@ -58,10 +58,11 @@ canvas { border: 2px solid white; border-radius: 10px; box-shadow: 0 0 15px rgba
   <div id="highScore">High Score: 0</div>
 </div>
 <div id="instructions">
-Use Arrow Keys (⬅️⬆️➡️⬇️) to move.<br>
-Eat rainbow food to grow and increase score.<br>
-Avoid red obstacles that appear randomly in space!<br>
-Difficulty affects snake speed, obstacle frequency, and map size.
+  <p>Use Arrow Keys (⬅️⬆️➡️⬇️) to move the snake.</p>
+  <p>Eat rainbow food to grow and increase score.</p>
+  <p>Avoid red obstacles that appear randomly in space!</p>
+  <p>Difficulty affects snake speed, obstacle frequency, and map size.</p>
+  <p id="targetScoreDisplay" style="font-weight:bold; color: yellow;"></p>
 </div>
 <button id="restartBtn" onclick="startGame()">Restart Game</button>
 
@@ -73,9 +74,31 @@ const restartBtn = document.getElementById('restartBtn');
 const scoreEl = document.getElementById('score');
 const highScoreEl = document.getElementById('highScore');
 
+const targetScoreDisplay = document.getElementById('targetScoreDisplay');
+
+function updateTargetScoreDisplay() {
+  const diff = document.getElementById('difficulty').value;
+  const scoreTargets = {
+    veryEasy: 15,
+    easy: 20,
+    medium: 30,
+    hard: 40,
+    veryHard: 50,
+    extreme: 60
+  };
+  targetScoreDisplay.innerText = `🎯 Target Score to Win (${diff}): ${scoreTargets[diff]} points`;
+}
+
+// Update target score display whenever difficulty changes
+document.getElementById('difficulty').addEventListener('change', updateTargetScoreDisplay);
+
+// Initialize on page load
+updateTargetScoreDisplay();
+
 let snake = [], food, obstacles = [], score=0, highScore=0, direction=null, interval, speed, box=20;
 let snakeColor = 'blue';
 let obstacleIntervals = [];
+let targetScore = 30; // default target score
 
 const difficulties = {
   veryEasy: { width:800, height:500, speed:150, obstacleCount:1, obstacleTime:7000 },
@@ -93,6 +116,18 @@ startBtn.addEventListener('click', startGame);
 
 function startGame(){
   const diff = document.getElementById('difficulty').value;
+  
+  // Set target score per difficulty
+  const scoreTargets = {
+    veryEasy: 15,
+    easy: 20,
+    medium: 30,
+    hard: 40,
+    veryHard: 50,
+    extreme: 60
+  };
+  targetScore = scoreTargets[diff];
+
   canvas.width = difficulties[diff].width;
   canvas.height = difficulties[diff].height;
   speed = difficulties[diff].speed;
@@ -223,9 +258,20 @@ function draw(){
   if(direction==='DOWN') snakeY+=box;
 
   if(Math.abs(snakeX-food.x)<1 && Math.abs(snakeY-food.y)<1){
-    score++; scoreEl.innerText='Score: '+score;
+    score++; 
+    scoreEl.innerText='Score: '+score;
     food = spawnFood();
     createParticles(snakeX,snakeY);
+
+    // ---------- WIN CONDITION ----------
+    if(score >= targetScore){
+        clearInterval(interval);
+        obstacleIntervals.forEach(t=>clearInterval(t));
+        restartBtn.style.display='inline-block';
+        alert('🎉 Congratulations! You reached the target score of ' + targetScore + ' and won the game!');
+        return;
+    }
+    // ----------------------------------
   } else snake.pop();
 
   let newHead={x:snakeX,y:snakeY};
