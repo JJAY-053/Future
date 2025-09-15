@@ -65,6 +65,11 @@ canvas { border: 2px solid white; border-radius: 10px; box-shadow: 0 0 15px rgba
   <p id="targetScoreDisplay" style="font-weight:bold; color: yellow;"></p>
 </div>
 <button id="restartBtn" onclick="startGame()">Restart Game</button>
+<button id="historyBtn" onclick="window.open('https://chatgpt.com/share/68c3e903-8f08-8006-ad30-c5ed68666d66','_blank')" 
+        title="Click to view the full chat history with ChatGPT" 
+        style="margin-top:15px; padding:8px 15px; font-size:1rem; border:none; border-radius:5px; background:#4d79ff; color:white; cursor:pointer;">
+  View Chat History
+</button>
 
 <script>
 const canvas = document.getElementById('gameCanvas');
