@@ -1,0 +1,1449 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Cosmic Rainbow Snake — Upgraded</title>
+<style>
+/* ---------- Base & Layout ---------- */
+:root{
+  --glass: rgba(255,255,255,0.06);
+  --accent: linear-gradient(90deg,#7b61ff,#38d8ff);
+  --glow: 0 6px 30px rgba(120,90,255,0.18);
+  --ui-font: "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+*{box-sizing:border-box}
+html,body{
+  height:100%;
+  margin:0;
+  font-family:var(--ui-font);
+  background: linear-gradient(180deg,#030014,#000014 60%);
+  color:#eaeef8;
+  -webkit-font-smoothing:antialiased;
+  -moz-osx-font-smoothing:grayscale;
+  overflow:hidden;
+}
+
+/* Centering container */
+.app {
+  height:100vh;
+  display:flex;
+  gap:18px;
+  align-items:center;
+  justify-content:center;
+  padding:24px;
+}
+
+/* Left column (game) */
+.game-wrap {
+  position:relative;
+  width:min(92vw,960px);
+  max-width:1200px;
+  aspect-ratio: 3 / 2; /* default aspect; canvas will be resized inside */
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  border-radius:14px;
+  padding:14px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.12));
+  box-shadow: 0 10px 40px rgba(0,0,0,0.6), var(--glow);
+  overflow:visible;
+  transform-origin:center;
+}
+
+/* Two layered canvases: background + game */
+.canvas-stack{
+  position:relative;
+  width:100%;
+  height:100%;
+  display:block;
+  border-radius:10px;
+  overflow:hidden;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.7);
+}
+
+/* background canvas is full size behind */
+#bgCanvas, #gameCanvas {
+  position:absolute;
+  inset:0;
+  width:100%;
+  height:100%;
+  display:block;
+  image-rendering: pixelated; /* keeps crisp grid look when scaled */
+}
+
+/* UI overlay inside game */
+.hud {
+  position:absolute;
+  z-index:20;
+  left:12px;
+  top:12px;
+  display:flex;
+  gap:10px;
+  align-items:center;
+}
+
+/* Small pill elements */
+.pill {
+  background: linear-gradient(135deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));
+  padding:8px 12px;
+  border-radius:999px;
+  font-weight:600;
+  display:flex;
+  gap:8px;
+  align-items:center;
+  border:1px solid rgba(255,255,255,0.04);
+  box-shadow: 0 4px 18px rgba(0,0,0,0.5);
+}
+
+/* Big right panel (controls) */
+.controls {
+  width:320px;
+  min-width:260px;
+  max-height:90vh;
+  padding:16px;
+  border-radius:12px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+  box-shadow: var(--glow);
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+}
+
+/* Titles & buttons */
+h1{
+  margin:0 0 4px 0;
+  font-size:20px;
+  letter-spacing:0.6px;
+}
+.small { font-size:13px; color: #cfd8ff; opacity:0.95; }
+
+/* Mode selection cards */
+.mode-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+.mode-card {
+  padding:10px;
+  border-radius:10px;
+  cursor:pointer;
+  text-align:center;
+  user-select:none;
+  border:1px solid rgba(255,255,255,0.04);
+  transition:transform .15s ease, box-shadow .15s ease, border-color .15s ease;
+  background: linear-gradient(180deg, rgba(255,255,255,0.01), rgba(0,0,0,0.05));
+}
+.mode-card:hover{ transform:translateY(-4px); box-shadow:0 8px 30px rgba(0,0,0,0.5); border-color: rgba(120,100,255,0.4); }
+.mode-card.selected{ box-shadow:0 10px 40px rgba(80,50,230,0.12); border-color: rgba(120,100,255,0.6); }
+
+/* form rows */
+.form-row { display:flex; gap:10px; align-items:center; }
+select, input[type="range"]{
+  appearance:none;
+  padding:8px;
+  border-radius:8px;
+  border:1px solid rgba(255,255,255,0.06);
+  background:linear-gradient(90deg,rgba(255,255,255,0.01), rgba(255,255,255,0.02));
+  color:inherit;
+  font-weight:600;
+}
+.range-label { width:90px; font-size:13px; color:#bfc9ff; }
+
+/* Start & Restart buttons */
+.btn {
+  border:none;
+  cursor:pointer;
+  padding:10px 14px;
+  border-radius:10px;
+  font-weight:700;
+  letter-spacing:0.4px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+  transition:transform .12s ease, box-shadow .12s ease;
+}
+.btn.primary{
+  background: linear-gradient(90deg,#7b61ff,#38d8ff);
+  color:#051024;
+}
+.btn.secondary{
+  background: linear-gradient(90deg,#ffd89b,#ff6a6a);
+  color:#051024;
+}
+.btn:active{ transform:translateY(1px); }
+
+/* Color selection (emoji buttons) */
+.color-grid { display:flex; gap:8px; flex-wrap:wrap; }
+.color-btn {
+  width:42px;height:42px;border-radius:9px;display:flex;align-items:center;justify-content:center;
+  font-size:18px; cursor:pointer; border:1px solid rgba(255,255,255,0.04);
+  background: linear-gradient(180deg, rgba(255,255,255,0.01), rgba(0,0,0,0.04));
+}
+.color-btn.selected { box-shadow: 0 6px 24px rgba(120,80,255,0.16); transform:translateY(-3px); border-color: rgba(120,80,255,0.5); }
+
+/* Power-up status bar */
+.powerup-bar{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+.powerup-item{ display:flex; gap:6px; align-items:center; padding:6px 8px; border-radius:10px; background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.03); min-width:90px; }
+.pbar { height:6px; background:rgba(255,255,255,0.06); border-radius:6px; overflow:hidden; width:70px; }
+.pbar>i { display:block; height:100%; background:linear-gradient(90deg,#ffd36b,#ff7ab6); width:100%; transform-origin:left; }
+
+/* Overlay modal (start menu & game over) */
+.overlay {
+  position:absolute; inset:0; z-index:40; display:flex; align-items:center; justify-content:center;
+  background:linear-gradient(180deg, rgba(0,0,0,0.5), rgba(0,0,0,0.65));
+  backdrop-filter: blur(6px);
+}
+.menu {
+  width:min(720px,94%); border-radius:12px; padding:18px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+  border:1px solid rgba(255,255,255,0.03);
+  box-shadow: 0 14px 60px rgba(0,0,0,0.7);
+}
+
+/* Small helper */
+.footer-small { font-size:12px; opacity:0.8; color:#bfc9ff; }
+
+/* Responsive tweaks */
+@media (max-width:920px){
+  .app { flex-direction:column; gap:12px; padding:12px; }
+  .controls { width:100%; max-width:920px; }
+  .game-wrap { width:100%; aspect-ratio: 3 / 2; }
+}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- Game area -->
+  <div class="game-wrap" id="gameWrap">
+    <div class="canvas-stack" id="canvasStack">
+      <!-- Background canvas: animated cosmic background -->
+      <canvas id="bgCanvas" aria-hidden="true"></canvas>
+      <!-- Main game canvas -->
+      <canvas id="gameCanvas" width="800" height="500"></canvas>
+    </div>
+
+    <!-- HUD - top-left -->
+    <div class="hud" style="left:12px; top:12px;">
+      <div class="pill" id="scorePill">Score: <span id="scoreVal">0</span></div>
+      <div class="pill" id="levelPill">Level: <span id="levelVal">1</span></div>
+      <div class="pill" id="timerPill" style="display:none;">Time: <span id="timerVal">60</span>s</div>
+    </div>
+
+    <!-- HUD - top-right -->
+    <div class="hud" style="right:12px; left:auto; top:12px;">
+      <div class="pill" id="modePill">Mode: <strong id="modeVal">Classic</strong></div>
+      <div class="pill" id="highPill">High: <span id="highVal">0</span></div>
+    </div>
+
+    <!-- Power-up status area bottom-left -->
+    <div style="position:absolute; left:12px; bottom:12px; z-index:25;">
+      <div class="powerup-bar" id="powerupBar"></div>
+    </div>
+
+    <!-- Pause button bottom-right -->
+    <div style="position:absolute; right:12px; bottom:12px; z-index:25;">
+      <button class="btn secondary" id="pauseBtn">Pause ◼</button>
+    </div>
+
+    <!-- Overlay menu (start & game over etc) -->
+    <div class="overlay" id="menuOverlay" style="display:flex;">
+      <div class="menu">
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:12px;">
+          <div>
+            <h1>Cosmic Rainbow Snake 🐍</h1>
+            <div class="small">A modern, feature-rich snake — animated background, power-ups, modes & mobile controls.</div>
+          </div>
+          <div style="text-align:right">
+            <div class="footer-small">Made for you — upgraded</div>
+            <div class="footer-small" id="bestHigh">Best: 0</div>
+          </div>
+        </div>
+
+        <hr style="opacity:.06;margin:12px 0">
+
+        <!-- Mode selection -->
+        <div>
+          <div class="small" style="margin-bottom:6px;">Choose Mode</div>
+          <div class="mode-grid" id="modeGrid">
+            <div class="mode-card" data-mode="classic">🏆 Classic<br><small class="small">Original snake gameplay</small></div>
+            <div class="mode-card" data-mode="powerups">⚡ Power-ups<br><small class="small">Food + random power-ups</small></div>
+            <div class="mode-card" data-mode="time">⏱️ Time Attack<br><small class="small">60 seconds — score as much as you can</small></div>
+            <div class="mode-card" data-mode="survival">☠️ Survival<br><small class="small">Waves of obstacles — survive</small></div>
+          </div>
+        </div>
+
+        <hr style="opacity:.06;margin:12px 0">
+
+        <!-- Difficulty & color & other controls -->
+        <div class="form-row" style="margin-bottom:8px; align-items:center;">
+          <div style="flex:1">
+            <div class="small">Difficulty</div>
+            <select id="difficultySelect">
+              <option value="veryEasy">Very Easy</option>
+              <option value="easy">Easy</option>
+              <option value="medium" selected>Medium</option>
+              <option value="hard">Hard</option>
+              <option value="veryHard">Very Hard</option>
+              <option value="extreme">Extreme</option>
+            </select>
+          </div>
+          <div style="width:120px;">
+            <div class="small">Volume</div>
+            <div style="display:flex; gap:8px; align-items:center;">
+              <input id="volumeRange" type="range" min="0" max="1" step="0.01" value="0.7" />
+            </div>
+          </div>
+        </div>
+
+        <div style="margin-bottom:8px;">
+          <div class="small">Snake Color</div>
+          <div class="color-grid" id="colorGrid">
+            <!-- Colors with emojis as requested -->
+            <div class="color-btn" data-color="white">🤍</div>
+            <div class="color-btn" data-color="pink">💖</div>
+            <div class="color-btn" data-color="red">❤️</div>
+            <div class="color-btn" data-color="blue">💙</div>
+            <div class="color-btn" data-color="purple">💜</div>
+            <div class="color-btn" data-color="green">💚</div>
+            <div class="color-btn" data-color="rainbow">🌈</div>
+            <div class="color-btn" data-color="neon">✨</div>
+          </div>
+        </div>
+
+        <div style="display:flex; gap:10px; margin-top:12px;">
+          <button class="btn primary" id="startGameBtn">Start Game</button>
+          <button class="btn" id="showInstructionsBtn">How to Play</button>
+          <button class="btn" id="resetHighBtn" title="Reset high score">Reset High</button>
+        </div>
+
+        <hr style="opacity:.06;margin:12px 0">
+
+        <div class="small">
+          Controls: Arrow keys or WASD. Space = Pause. On mobile: swipe to move.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Controls / right panel -->
+  <aside class="controls" id="controlsPanel">
+    <div>
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <div>
+          <h1 style="margin-bottom:4px">Settings</h1>
+          <div class="small">Customize gameplay & view stats</div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="small" style="margin-bottom:6px">Selected Mode</div>
+      <div class="pill" id="selectedModePill">Classic</div>
+    </div>
+
+    <div>
+      <div class="small">High Scores (per mode)</div>
+      <div style="display:flex; gap:6px; margin-top:8px; flex-direction:column;">
+        <div class="pill">Classic: <strong id="hs_classic">0</strong></div>
+        <div class="pill">Power-ups: <strong id="hs_powerups">0</strong></div>
+        <div class="pill">Time: <strong id="hs_time">0</strong></div>
+        <div class="pill">Survival: <strong id="hs_survival">0</strong></div>
+      </div>
+    </div>
+
+    <div>
+      <div class="small">Game Controls</div>
+      <div style="display:flex; gap:8px; margin-top:8px;">
+        <button class="btn primary" id="openMenuBtn">Open Menu</button>
+        <button class="btn" id="restartBtnRight">Restart</button>
+      </div>
+      <div style="margin-top:8px;" class="small">Pause/Resume with spacebar.</div>
+    </div>
+
+    <div>
+      <div class="small">Current Active Power-ups</div>
+      <div id="rightPowerups" style="margin-top:8px;"></div>
+    </div>
+
+    <div style="margin-top:auto;">
+      <div class="small">Notes</div>
+      <div class="footer-small" style="margin-top:6px;">This single-file upgrade includes many new features — swipe on mobile, new power-ups, time attack, survival waves, responsive canvas, audio, and smart spawning.</div>
+    </div>
+  </aside>
+</div>
+
+<script>
+/* ---------------------------------------------------------------------------
+   Upgraded Snake Game - Single-file
+   - Refactored into modular objects and grouped functions
+   - Many features implemented: modes, power-ups, animated background,
+     responsive canvas, mobile swipe, audio, localStorage high scores, etc.
+   Notes:
+   - Comments explain complex parts.
+   --------------------------------------------------------------------------- */
+
+/* ----------------------------
+   Utility helpers
+   ---------------------------- */
+const $ = (sel, root=document) => root.querySelector(sel);
+const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
+const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
+const randInt = (min,max)=> Math.floor(Math.random()*(max-min+1))+min;
+
+/* ----------------------------
+   Configuration / Difficulty table
+   ---------------------------- */
+const DIFFICULTIES = {
+  veryEasy: { gridW:40, gridH:25, baseTick:140, obstacleFreq:9000, name:'Very Easy' },
+  easy:     { gridW:35, gridH:23, baseTick:120, obstacleFreq:8000, name:'Easy' },
+  medium:   { gridW:30, gridH:20, baseTick:100, obstacleFreq:6000, name:'Medium' },
+  hard:     { gridW:26, gridH:18, baseTick:80,  obstacleFreq:4500, name:'Hard' },
+  veryHard: { gridW:22, gridH:16, baseTick:70,  obstacleFreq:3500, name:'Very Hard' },
+  extreme:  { gridW:20, gridH:14, baseTick:60,  obstacleFreq:2500, name:'Extreme' }
+};
+
+/* ----------------------------
+   DOM references
+   ---------------------------- */
+const bgCanvas = $('#bgCanvas');
+const gameCanvas = $('#gameCanvas');
+const gameWrap = $('#gameWrap');
+const canvasStack = $('#canvasStack');
+const bgCtx = bgCanvas.getContext('2d');
+const ctx = gameCanvas.getContext('2d');
+
+const menuOverlay = $('#menuOverlay');
+const modeGrid = $('#modeGrid');
+const modeVal = $('#modeVal');
+const scoreVal = $('#scoreVal');
+const levelVal = $('#levelVal');
+const timerPill = $('#timerPill');
+const timerVal = $('#timerVal');
+const highVal = $('#highVal');
+const pauseBtn = $('#pauseBtn');
+const startGameBtn = $('#startGameBtn');
+const openMenuBtn = $('#openMenuBtn');
+const restartBtnRight = $('#restartBtnRight');
+const bestHigh = $('#bestHigh');
+const difficultySelect = $('#difficultySelect');
+const volumeRange = $('#volumeRange');
+const powerupBar = $('#powerupBar');
+const selectedModePill = $('#selectedModePill');
+const hs_classic = $('#hs_classic'), hs_powerups = $('#hs_powerups'), hs_time = $('#hs_time'), hs_survival = $('#hs_survival');
+
+/* Color selection buttons */
+const colorButtons = $$('#colorGrid .color-btn');
+
+/* Mode state */
+let chosenMode = 'classic';
+let chosenColor = 'rainbow';
+
+/* load saved high scores */
+const HS_KEYS = {
+  classic: 'snake_hs_classic_v1',
+  powerups: 'snake_hs_powerups_v1',
+  time: 'snake_hs_time_v1',
+  survival: 'snake_hs_survival_v1'
+};
+function loadHighs(){
+  hs_classic.innerText = localStorage.getItem(HS_KEYS.classic) || 0;
+  hs_powerups.innerText = localStorage.getItem(HS_KEYS.powerups) || 0;
+  hs_time.innerText = localStorage.getItem(HS_KEYS.time) || 0;
+  hs_survival.innerText = localStorage.getItem(HS_KEYS.survival) || 0;
+  // show best in menu
+  bestHigh.innerText = 'Best: ' + (Math.max(
+    +(localStorage.getItem(HS_KEYS.classic)||0),
+    +(localStorage.getItem(HS_KEYS.powerups)||0),
+    +(localStorage.getItem(HS_KEYS.time)||0),
+    +(localStorage.getItem(HS_KEYS.survival)||0)
+  ));
+}
+loadHighs();
+
+/* ----------------------------
+   Audio system using WebAudio API
+   - simple synthesized sounds for the events requested
+   ---------------------------- */
+const AudioSys = (function(){
+  const ctx = new (window.AudioContext || window.webkitAudioContext)();
+  const master = ctx.createGain(); master.connect(ctx.destination);
+  master.gain.value = +volumeRange.value;
+  volumeRange.addEventListener('input',()=> master.gain.value = +volumeRange.value);
+
+  function beep(freq, type='sine', duration=0.08, vol=0.08){
+    const o = ctx.createOscillator();
+    const g = ctx.createGain();
+    o.type = type;
+    o.frequency.value = freq;
+    g.gain.value = vol;
+    o.connect(g); g.connect(master);
+    o.start();
+    g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + duration);
+    o.stop(ctx.currentTime + duration + 0.02);
+  }
+  function crunch(){
+    // a little noisy crunch simulated by multiple quick beeps
+    beep(200, 'square', 0.06, 0.04);
+    setTimeout(()=>beep(420,'sawtooth',0.06,0.04),30);
+  }
+  function powerupSound(){
+    beep(880,'sine',0.12,0.06);
+    setTimeout(()=>beep(1320,'sine',0.06,0.05),90);
+  }
+  function thud(){
+    beep(80,'sine',0.18,0.14);
+  }
+  function highscore(){
+    beep(720,'sine',0.08,0.06);
+    setTimeout(()=>beep(880,'sine',0.08,0.06),90);
+    setTimeout(()=>beep(1050,'sine',0.06,0.06),180);
+  }
+  return { crunch, powerupSound, thud, highscore, ctx };
+})();
+
+/* ----------------------------
+   Background animation (stars, nebula, meteors)
+   - Separate canvas used so we can keep it cheap and smooth.
+   ---------------------------- */
+const BgAnim = (function(){
+  let w=0,h=0, stars=[], clouds=[], meteors=[];
+  function resize(width,height){
+    bgCanvas.width = width;
+    bgCanvas.height = height;
+    w = width; h = height;
+    init();
+  }
+  function init(){
+    stars = [];
+    for(let i=0;i<160;i++){
+      stars.push({x:Math.random()*w, y:Math.random()*h, s: Math.random()*1.8+0.4, twinkle: Math.random()*1.2});
+    }
+    clouds = [];
+    for(let i=0;i<6;i++){
+      clouds.push({
+        x: Math.random()*w, y: Math.random()*h*0.8,
+        size: Math.random()*0.8+0.3, alpha: Math.random()*0.12+0.04
+      });
+    }
+    meteors = [];
+  }
+  let lastMeteor = 0;
+  function tick(ts){
+    // draw background gradient nebula
+    const g = bgCtx.createLinearGradient(0,0,0,h);
+    g.addColorStop(0, '#010014');
+    g.addColorStop(0.5, '#07102a');
+    g.addColorStop(1, '#000010');
+    bgCtx.fillStyle = g;
+    bgCtx.fillRect(0,0,w,h);
+
+    // cloud-ish soft blobs (simple)
+    clouds.forEach(c=>{
+      const grd = bgCtx.createRadialGradient(c.x, c.y, 0, c.x, c.y, Math.max(w,h)*c.size);
+      grd.addColorStop(0, `rgba(120,50,255,${c.alpha})`);
+      grd.addColorStop(1, 'rgba(0,0,0,0)');
+      bgCtx.fillStyle = grd;
+      bgCtx.fillRect(0,0,w,h);
+      c.x += 0.02;
+      if(c.x > w+100) c.x = -100;
+    });
+
+    // stars (twinkle)
+    stars.forEach(s=>{
+      const a = 0.4 + Math.sin((ts/500)*(s.twinkle+0.1))*0.6;
+      bgCtx.fillStyle = `rgba(255,255,255,${a})`;
+      bgCtx.fillRect(s.x, s.y, s.s, s.s);
+    });
+
+    // meteors occasionally
+    if(ts - lastMeteor > 3500 + Math.random()*8000){
+      meteors.push({
+        x: Math.random()*w,
+        y: -10,
+        dx: -3 + Math.random()*6,
+        dy: 6 + Math.random()*3,
+        len: 40 + Math.random()*80,
+        alpha: 0.9
+      });
+      lastMeteor = ts;
+    }
+    meteors.forEach((m,i)=>{
+      bgCtx.beginPath();
+      const grad = bgCtx.createLinearGradient(m.x, m.y, m.x-m.dx*m.len, m.y-m.dy*m.len);
+      grad.addColorStop(0, `rgba(255,255,255,${m.alpha})`);
+      grad.addColorStop(1, 'rgba(255,200,100,0)');
+      bgCtx.strokeStyle = grad;
+      bgCtx.lineWidth = 2;
+      bgCtx.moveTo(m.x, m.y);
+      bgCtx.lineTo(m.x-m.dx*m.len, m.y-m.dy*m.len);
+      bgCtx.stroke();
+      m.x += m.dx; m.y += m.dy;
+      if(m.y > h+100 || m.x < -200 || m.x > w+200) meteors.splice(i,1);
+    });
+  }
+  return { resize, tick };
+})();
+
+/* ----------------------------
+   Main Game object: controls state, loop, spawns, and interactions
+   ---------------------------- */
+const Game = (function(){
+  // Internal state
+  let gridCols=40, gridRows=25, box=20, width=800, height=500;
+  let baseTick = 100; // ms per move (lower = faster)
+  let lastTick = 0;
+  let running = false;
+  let paused = false;
+  let reqId = null;
+  let snake = null;
+  let food = null;
+  let bonusFood = null;
+  let obstacles = []; // {x,y}
+  let warnings = [];  // flashing future obstacle locations {x,y,expireAt}
+  let powerups = [];  // active powerup pickups on map
+  let particles = []; // particle system for visual bursts
+  let activeEffects = {}; // active timed effects: {name: {expiresAt, payload}}
+  let score = 0;
+  let level = 1;
+  let ticksSinceLevel = 0;
+  let obstacleTimer = null;
+  let mode = 'classic';
+  let targetScore = 9999;
+  let timeAttackRemaining = 60;
+  let timeAttackExpires = 0;
+  let shakeUntil = 0;
+  let shakeStrength = 0;
+  let lastFoodSpawn = 0;
+  let tickInterval = baseTick;
+  let lastObstacleWarn = 0;
+  let lastPowerupSpawn = 0;
+  let lastBonusSpawn = 0;
+
+  /* Utility: convert grid coords to pixel */
+  function gridToPx(x,y){ return { px: x*box, py: y*box }; }
+
+  /* Reset state & start */
+  function start(opts){
+    // opts includes mode,difficulty,color
+    mode = opts.mode || 'classic';
+    chosenMode = mode;
+    const diff = DIFFICULTIES[opts.difficulty || 'medium'];
+    gridCols = diff.gridW; gridRows = diff.gridH;
+    baseTick = diff.baseTick;
+    tickInterval = baseTick;
+    width = gridCols*box; height = gridRows*box;
+    gameCanvas.width = width; gameCanvas.height = height;
+    bgCanvas.width = width; bgCanvas.height = height;
+    // resize container scaling to fit wrapper while preserving aspect
+    // We'll let CSS handle responsive scaling: canvases will be pixel perfect but CSS scales them.
+    snake = new Snake(Math.floor(gridCols/2), Math.floor(gridRows/2), chosenColor);
+    food = spawnFood();
+    bonusFood = null;
+    obstacles = [];
+    warnings = [];
+    powerups = [];
+    particles = [];
+    activeEffects = {};
+    score = 0;
+    level = 1;
+    ticksSinceLevel = 0;
+    timeAttackRemaining = (mode === 'time') ? 60 : 0;
+    timeAttackExpires = (mode === 'time') ? (performance.now() + 60000) : 0;
+    lastTick = performance.now();
+    lastFoodSpawn = performance.now();
+    lastObstacleWarn = performance.now();
+    lastPowerupSpawn = performance.now();
+    lastBonusSpawn = performance.now();
+    targetScore = 999999; // default no target
+    // set UI
+    $('#modeVal').innerText = mode === 'classic' ? 'Classic' : mode === 'powerups' ? 'Power-ups' : mode === 'time' ? 'Time Attack' : 'Survival';
+    $('#selectedModePill').innerText = $('#modeVal').innerText;
+    $('#scoreVal').innerText = '0';
+    $('#levelVal').innerText = '1';
+    $('#timerPill').style.display = (mode === 'time') ? 'inline-flex' : 'none';
+    // obstacle spawn scheduling
+    setupObstacleSpawner(diff.obstacleFreq);
+    running = true; paused = false;
+    lastTick = performance.now();
+    loop(lastTick);
+  }
+
+  /* Pause/resume */
+  function togglePause(){
+    if(!running) return;
+    paused = !paused;
+    pauseBtn.innerText = paused ? 'Resume ▶' : 'Pause ◼';
+    if(!paused){
+      // resume animation loop
+      lastTick = performance.now();
+      loop(lastTick);
+    } else {
+      // pause; cancel animation so it doesn't keep busy
+      if(reqId) cancelAnimationFrame(reqId);
+    }
+  }
+
+  /* End game */
+  function endGame(reason){
+    running = false;
+    if(reqId) cancelAnimationFrame(reqId);
+    if(obstacleTimer) { clearInterval(obstacleTimer); obstacleTimer = null; }
+    // shake effect
+    shakeUntil = performance.now() + 500; shakeStrength = 8;
+    // update highs depending on mode
+    const key = HS_KEYS[mode] || HS_KEYS.classic;
+    const prev = +(localStorage.getItem(key) || 0);
+    if(score > prev){
+      localStorage.setItem(key, score);
+      // celebrate!
+      AudioSys.highscore();
+      // update displays
+      loadHighs();
+      $('#highVal').innerText = Math.max(prev, score);
+    } else {
+      AudioSys.thud();
+    }
+    // show menu with score summary (after short timeout to allow shake)
+    setTimeout(()=> {
+      $('#bestHigh').innerText = 'Best: ' + Math.max(
+        +(localStorage.getItem(HS_KEYS.classic)||0),
+        +(localStorage.getItem(HS_KEYS.powerups)||0),
+        +(localStorage.getItem(HS_KEYS.time)||0),
+        +(localStorage.getItem(HS_KEYS.survival)||0)
+      );
+      $('#menuOverlay').style.display = 'flex';
+    }, 600);
+  }
+
+  /* Main loop (uses requestAnimationFrame but respects tickInterval for grid moves) */
+  function loop(ts){
+    if(!running) return;
+    reqId = requestAnimationFrame(loop);
+    // background tick (independent)
+    BgAnim.tick(ts);
+    if(paused) return;
+    // handle time attack
+    if(mode === 'time'){
+      const rem = Math.max(0, Math.ceil((timeAttackExpires - ts)/1000));
+      timerVal.innerText = rem;
+      if(rem <= 0){
+        // time up -> end game
+        endGame('timeup');
+        running = false;
+        return;
+      }
+    }
+
+    // screen shake transform
+    if(shakeUntil > performance.now()){
+      const dx = (Math.random()-0.5)*shakeStrength;
+      const dy = (Math.random()-0.5)*shakeStrength;
+      gameWrap.style.transform = `translate(${dx}px,${dy}px)`;
+    } else {
+      gameWrap.style.transform = '';
+    }
+
+    // tick timing
+    if(ts - lastTick >= tickInterval){
+      lastTick = ts;
+      tick();
+    }
+    // draw between ticks for smooth particle anims
+    render();
+  }
+
+  /* Tick: grid-based movement + game logic */
+  function tick(){
+    // 1) Move snake
+    const moved = snake.step();
+    if(!moved){
+      // if no direction yet, ignore
+      return;
+    }
+    const head = snake.head();
+
+    // 2) Check collisions (walls always kill except shield)
+    const hitWall = (head.x < 0 || head.y < 0 || head.x >= gridCols || head.y >= gridRows);
+    const shieldActive = !!activeEffects.shield;
+    if(hitWall){
+      // walls kill (require shield does not protect vs walls per spec)
+      endGame('wall');
+      return;
+    }
+
+    // 3) collision with self
+    if(snake.collidesWithBodyExceptHead()){
+      endGame('self');
+      return;
+    }
+
+    // 4) collision with obstacles (if not shield)
+    if(!shieldActive && obstacles.some(o => o.x === head.x && o.y === head.y)){
+      endGame('obstacle');
+      return;
+    }
+
+    // 5) food
+    if(food && head.x === food.x && head.y === food.y){
+      // apply score multiplier effect if active
+      const multiplier = activeEffects.multiplier ? 2 : 1;
+      score += (1 * multiplier);
+      snake.grow(1);
+      spawnFoodSafe();
+      createParticleBurst(head.x, head.y, food.color);
+      AudioSys.crunch();
+      updateScoreUI();
+      checkLevelProgress();
+      // if in time mode, no special end-on-target; in classic we could set target
+    } else {
+      // no food eaten -> we already moved; nothing
+    }
+
+    // 6) bonus food (5x)
+    if(bonusFood && head.x === bonusFood.x && head.y === bonusFood.y){
+      score += 5;
+      snake.grow(2);
+      createParticleBurst(head.x, head.y, '#ffd700'); // golden
+      AudioSys.crunch();
+      bonusFood = null;
+      updateScoreUI();
+      checkLevelProgress();
+    }
+
+    // 7) power-up pick
+    for(let i=0;i<powerups.length;i++){
+      const pu = powerups[i];
+      if(head.x === pu.x && head.y === pu.y){
+        applyPowerup(pu.type);
+        createParticleBurst(head.x, head.y, pu.color);
+        AudioSys.powerupSound();
+        powerups.splice(i,1);
+        break;
+      }
+    }
+
+    // 8) after step checks for spawn scheduling (powerups/bonus/obstacles)
+    scheduleSpawns();
+  }
+
+  /* Render: draws the grid, snake, items, particles, warnings, UI */
+  function render(){
+    // clear game ctx
+    ctx.clearRect(0,0,gameCanvas.width,gameCanvas.height);
+
+    // draw grid background subtle
+    ctx.fillStyle = '#001';
+    ctx.fillRect(0,0,gameCanvas.width,gameCanvas.height);
+
+    // draw warnings (flashing squares where obstacles will appear)
+    warnings.forEach(w => {
+      const t = (performance.now() % 600) / 600;
+      const alpha = (Math.sin(t * Math.PI*2) * 0.5 + 0.5)*0.9;
+      const p = gridToPx(w.x,w.y);
+      ctx.fillStyle = `rgba(255,215,0,${alpha})`;
+      ctx.fillRect(p.px+1,p.py+1,box-2,box-2);
+    });
+
+    // draw obstacles
+    obstacles.forEach(o => {
+      const p = gridToPx(o.x,o.y);
+      // obstacles draw as textured red boxes
+      const grd = ctx.createLinearGradient(p.px,p.py,p.px+box,p.py+box);
+      grd.addColorStop(0,'#6b0000');
+      grd.addColorStop(1,'#ff3b3b');
+      ctx.fillStyle = grd;
+      ctx.fillRect(p.px+1,p.py+1,box-2,box-2);
+      // small hazard icon
+      ctx.fillStyle = 'rgba(0,0,0,0.2)';
+      ctx.font = `${Math.floor(box*0.7)}px serif`;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText('☠', p.px+box/2, p.py+box/2+1);
+    });
+
+    // draw food
+    if(food){
+      const p = gridToPx(food.x,food.y);
+      drawCircularCell(p.px,p.py,box, food.color, '🎎');
+    }
+    // draw bonus
+    if(bonusFood){
+      const p = gridToPx(bonusFood.x,bonusFood.y);
+      drawCircularCell(p.px,p.py,box, '#ffd700', '🍎'); // golden apple (uses apple logo char); fallback
+      // overlay golden star
+      ctx.fillStyle = 'rgba(255,255,255,0.9)';
+      ctx.font = `${Math.floor(box*0.6)}px serif`;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText('⭐', p.px+box/2, p.py+box/2);
+    }
+
+    // draw powerups on map
+    powerups.forEach(pu=>{
+      const p = gridToPx(pu.x,pu.y);
+      ctx.fillStyle = pu.color;
+      ctx.fillRect(p.px+2, p.py+2, box-4, box-4);
+      // show emoji
+      ctx.font = `${Math.floor(box*0.6)}px serif`;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillStyle = '#fff';
+      ctx.fillText(pu.emoji, p.px+box/2, p.py+box/2+1);
+    });
+
+    // draw snake - dynamic colors including rainbow gradient along body
+    snake.segments.forEach((seg,i)=>{
+      const p = gridToPx(seg.x,seg.y);
+      const size = box-2;
+      // choose color per segment depending on chosenColor option
+      let fill = '#66ff66';
+      if(snake.color === 'rainbow'){
+        // rainbow along body: hue shifts by segment index
+        const hue = (i * 360 / Math.max(6, snake.segments.length) + performance.now()*0.02) % 360;
+        fill = `hsl(${hue} 80% 55%)`;
+      } else if(snake.color === 'neon'){
+        const hues = ['#00fff0','#00ff7a','#ff00ea','#7a00ff'];
+        fill = hues[i % hues.length];
+      } else {
+        const map = { white:'#ffffff', pink:'#ff7ab6', red:'#ff3b3b', blue:'#4fb3ff', purple:'#b77bff', green:'#6bff9a' };
+        fill = map[snake.color] || snake.color;
+      }
+      ctx.fillStyle = fill;
+      ctx.fillRect(p.px+1,p.py+1,size,size);
+      // small highlight
+      ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+      ctx.strokeRect(p.px+1,p.py+1,size,size);
+    });
+
+    // draw particles
+    for(let i=particles.length-1;i>=0;i--){
+      const p = particles[i];
+      ctx.globalAlpha = p.life/ p.maxLife;
+      ctx.fillStyle = p.color;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r * (1 + (1 - p.life/p.maxLife)), 0, Math.PI*2);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+      p.x += p.vx; p.y += p.vy; p.life--;
+      if(p.life <= 0) particles.splice(i,1);
+    }
+
+    // draw UI overlays (maybe powerup bars)
+    renderActiveEffects();
+  }
+
+  /* Draw a circular cell with emoji overlay (used for food) */
+  function drawCircularCell(px,py,box,color, emoji){
+    const cx = px + box/2, cy = py + box/2, r = box/2 - 2;
+    const g = ctx.createRadialGradient(cx,cy,2,cx,cy,r*1.2);
+    g.addColorStop(0, '#fff');
+    g.addColorStop(0.2, color);
+    g.addColorStop(1, '#00000000');
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI*2);
+    ctx.fill();
+    // emoji overlay for fun
+    ctx.font = `${Math.floor(box*0.6)}px serif`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#fff';
+    if(emoji) ctx.fillText(emoji, cx, cy+1);
+  }
+
+  /* Particle bursts */
+  function createParticleBurst(gx,gy,color){
+    // spawn particles around the center of the cell
+    const center = gridToPx(gx,gy);
+    for(let i=0;i<16;i++){
+      const ang = Math.random()*Math.PI*2;
+      const speed = 0.6 + Math.random()*2.4;
+      particles.push({
+        x: center.px + box/2, y: center.py + box/2,
+        vx: Math.cos(ang)*speed, vy: Math.sin(ang)*speed,
+        r: Math.random()*3 + 1,
+        life: 30 + Math.random()*30,
+        maxLife: 30 + Math.random()*30,
+        color: color || '#fff'
+      });
+    }
+  }
+
+  /* Schedule spawns: obstacles, powerups, bonus food */
+  function scheduleSpawns(){
+    const now = performance.now();
+    // powerups spawn rarely in powerups mode
+    if(mode === 'powerups' && now - lastPowerupSpawn > 7000 + Math.random()*8000){
+      spawnPowerup();
+      lastPowerupSpawn = now;
+    }
+    // bonus food spawn occasionally in all modes
+    if(now - lastBonusSpawn > 15000 + Math.random()*15000){
+      spawnBonusFood();
+      lastBonusSpawn = now;
+    }
+  }
+
+  /* Spawning helpers: ensure smart spawning - never on snake or obstacles or powerups */
+  function spawnFoodSafe(){
+    food = spawnFood();
+    // ensure not colliding
+    let attempts = 0;
+    while(isCellOccupied(food.x,food.y) && attempts < 300){
+      food = spawnFood();
+      attempts++;
+    }
+  }
+  function spawnFood(){
+    return {
+      x: randInt(0,gridCols-1),
+      y: randInt(0,gridRows-1),
+      color: `hsl(${Math.floor(Math.random()*360)} 90% 60%)`
+    };
+  }
+
+  function spawnBonusFood(){
+    // spawn golden apple worth 5x
+    let tries=0;
+    while(tries++ < 200){
+      const x = randInt(0,gridCols-1), y = randInt(0,gridRows-1);
+      if(!isCellOccupied(x,y)){
+        bonusFood = { x, y };
+        // remove after some time
+        setTimeout(()=>{ bonusFood = null; }, 9000);
+        return;
+      }
+    }
+  }
+
+  function spawnPowerup(){
+    const types = [
+      {type:'speed', emoji:'⚡', color:'#ffcc33'}, // doubles speed
+      {type:'shield', emoji:'🛡️', color:'#33ccff'}, // invincible to obstacles
+      {type:'mult', emoji:'⭐', color:'#cc88ff'}, // double points
+      {type:'shrink', emoji:'🔻', color:'#ff6b6b'} // shrink tail
+    ];
+    // choose random
+    const pick = types[Math.floor(Math.random()*types.length)];
+    let tries=0;
+    while(tries++ < 200){
+      const x = randInt(0,gridCols-1), y = randInt(0,gridRows-1);
+      if(!isCellOccupied(x,y)){
+        powerups.push({ x, y, type: pick.type, emoji: pick.emoji, color: pick.color });
+        // auto-expire if not picked
+        setTimeout(()=>{
+          const idx = powerups.findIndex(p=>p.x===x && p.y===y && p.type===pick.type);
+          if(idx>=0) powerups.splice(idx,1);
+        }, 12000);
+        return;
+      }
+    }
+  }
+
+  /* Spawner for obstacles with warning flash: show a warning tile, then after 1s place obstacle */
+  function setupObstacleSpawner(freq){
+    if(obstacleTimer) clearInterval(obstacleTimer);
+    obstacleTimer = setInterval(()=>{
+      // choose a location that is free
+      let tries=0;
+      while(tries++ < 200){
+        const x = randInt(0,gridCols-1), y = randInt(0,gridRows-1);
+        if(!isCellOccupied(x,y) && !warnings.some(w=>w.x===x && w.y===y)){
+          // push a warning that lasts 1s and flashes
+          const warn = { x, y, expireAt: performance.now() + 1000 };
+          warnings.push(warn);
+          // after 1000ms convert to obstacle (if still free)
+          setTimeout(()=>{
+            // remove warning
+            warnings = warnings.filter(w=>!(w.x===x && w.y===y));
+            // convert to actual obstacle
+            if(!isCellOccupied(x,y)){
+              obstacles.push({ x, y });
+              // obstacle lifetime depends on mode & level; in survival maybe permanent or limited
+              // make obstacles auto-remove after some time unless survival mode where they persist a bit longer
+              const lifetime = mode === 'survival' ? 25000 - (level*800) : 14000 - (level*400);
+              setTimeout(()=> {
+                obstacles = obstacles.filter(o=> !(o.x===x && o.y===y));
+              }, Math.max(3000,lifetime));
+            }
+          }, 1000);
+          break;
+        }
+      }
+    }, Math.max(800, freq - (level*200)));
+  }
+
+  /* Apply power-up effect */
+  function applyPowerup(type){
+    const now = performance.now();
+    if(type === 'speed'){
+      // double speed for 5 seconds -> reduce tickInterval by half
+      activeEffects.speed = { expiresAt: now + 5000, multiplier: 2 };
+      tickInterval = Math.max(20, baseTick / 2 / (1 + (level-1)*0.05));
+      // visual: set effect and remove after time
+      setTimeout(()=> removeEffect('speed'), 5000);
+    } else if(type === 'shield'){
+      activeEffects.shield = { expiresAt: now + 10000 };
+      setTimeout(()=> removeEffect('shield'), 10000);
+    } else if(type === 'mult'){
+      activeEffects.multiplier = { expiresAt: now + 15000 };
+      setTimeout(()=> removeEffect('multiplier'), 15000);
+    } else if(type === 'shrink'){
+      // remove last two segments instantly
+      snake.shrink(2);
+    }
+    updatePowerupUI();
+  }
+
+  function removeEffect(name){
+    delete activeEffects[name];
+    // if speed removed, reset tick interval
+    if(name === 'speed'){
+      tickInterval = Math.max(20, baseTick / (1 + (level-1)*0.05));
+    }
+    updatePowerupUI();
+  }
+
+  /* Level progression: increase every 100 points */
+  function checkLevelProgress(){
+    const newLevel = Math.floor(score / 100) + 1;
+    if(newLevel > level){
+      level = newLevel;
+      levelVal.innerText = level;
+      // small speed increase
+      tickInterval = Math.max(18, baseTick / (1 + (level-1)*0.06));
+      // increase obstacle frequency slightly by resetting timer
+      setupObstacleSpawner(Math.max(800, DIFFICULTIES[difficultySelect.value].obstacleFreq - (level*150)));
+      // visual feedback
+      createLevelUpEffect();
+    }
+    $('#scoreVal').innerText = score;
+  }
+
+  function createLevelUpEffect(){
+    // particles around center
+    createParticleBurst(Math.floor(gridCols/2), Math.floor(gridRows/2), '#7b61ff');
+    // small popup text
+    flashText(`LEVEL UP! ${level}`, '#7b61ff');
+  }
+
+  /* Flash big on-screen text (temporary) */
+  function flashText(text, color='#fff'){
+    const div = document.createElement('div');
+    div.style.position='absolute';
+    div.style.zIndex = 1000;
+    div.style.left = '50%';
+    div.style.top = '40%';
+    div.style.transform = 'translate(-50%,-50%)';
+    div.style.padding = '12px 18px';
+    div.style.borderRadius = '10px';
+    div.style.fontSize = '20px';
+    div.style.fontWeight = '800';
+    div.style.background = 'linear-gradient(90deg, rgba(255,255,255,0.02), rgba(0,0,0,0.4))';
+    div.style.border = '1px solid rgba(255,255,255,0.06)';
+    div.style.color = color;
+    div.innerText = text;
+    canvasStack.appendChild(div);
+    setTimeout(()=> { div.style.transition='all .5s ease'; div.style.opacity='0'; div.style.top='30%'; }, 1000);
+    setTimeout(()=> div.remove(), 1600);
+  }
+
+  /* Update UI elements */
+  function updateScoreUI(){
+    $('#scoreVal').innerText = score;
+    $('#levelVal').innerText = level;
+  }
+
+  function updatePowerupUI(){
+    // show active effects on bottom-left
+    powerupBar.innerHTML = '';
+    Object.keys(activeEffects).forEach(name=>{
+      const el = document.createElement('div');
+      el.className = 'powerup-item';
+      let emoji=''; let color='#fff';
+      if(name==='speed'){ emoji='⚡'; color='#ffcc33'; }
+      if(name==='shield'){ emoji='🛡️'; color='#33ccff'; }
+      if(name==='multiplier'){ emoji='⭐'; color='#cc88ff'; }
+      const expiresAt = activeEffects[name].expiresAt || (performance.now()+1);
+      const remaining = Math.max(0, (expiresAt - performance.now())/1000);
+      el.innerHTML = `<div style="font-weight:800;">${emoji}</div><div style="font-size:12px">${name}<div style="height:6px;margin-top:6px;width:80px;background:rgba(255,255,255,0.06);border-radius:6px"><i style="display:block;height:100%;background:linear-gradient(90deg,#7b61ff,#38d8ff);width:${Math.max(0,Math.round((remaining/ ( (name==='speed')?5: (name==='shield')?10:15))*100))}%"></i></div></div>`;
+      powerupBar.appendChild(el);
+    });
+    // also update right side
+    const right = $('#rightPowerups');
+    if(right) {
+      right.innerHTML = '';
+      Object.keys(activeEffects).forEach(name=>{
+        const item = document.createElement('div');
+        item.className = 'pill';
+        item.style.marginTop = '6px';
+        item.innerText = `${name} (${Math.max(0,Math.ceil((activeEffects[name].expiresAt - performance.now())/1000))}s)`;
+        right.appendChild(item);
+      });
+    }
+  }
+
+  function renderActiveEffects(){
+    // Placeholder for any additional visual effects rendering
+  }
+
+  /* Helper checks if a grid cell is currently occupied by snake/obstacle/powerup/food */
+  function isCellOccupied(x,y){
+    if(snake && snake.segments.some(s=>s.x===x && s.y===y)) return true;
+    if(obstacles.some(o=>o.x===x && o.y===y)) return true;
+    if(powerups.some(pu=>pu.x===x && pu.y===y)) return true;
+    if(food && food.x===x && food.y===y) return true;
+    if(bonusFood && bonusFood.x===x && bonusFood.y===y) return true;
+    if(warnings.some(w=>w.x===x && w.y===y)) return true;
+    return false;
+  }
+
+  /* Public interface - THIS IS THE KEY FIX */
+  return {
+    start: start,
+    togglePause: togglePause,
+    endGame: endGame,
+    isRunning: ()=> running,
+    spawnFoodSafe,
+    getScore: ()=>score,
+    getSnake: ()=> snake  // EXPOSE INTERNAL SNAKE FOR INPUT HANDLING
+  };
+})();
+
+/* ----------------------------
+   Snake class
+   - handles segments, movement, growth/shrink
+   ---------------------------- */
+function Snake(sx, sy, color){
+  this.segments = [{x:sx,y:sy}]; // head at index 0
+  this.dir = null; // 'LEFT','RIGHT','UP','DOWN'
+  this.nextDir = null;
+  this.color = color || 'green';
+}
+Snake.prototype.head = function(){ return this.segments[0]; };
+Snake.prototype.setDirection = function(d){
+  // prevent reversing into self
+  const opposite = (d==='LEFT' && this.dir==='RIGHT') || (d==='RIGHT' && this.dir==='LEFT') || (d==='UP' && this.dir==='DOWN') || (d==='DOWN' && this.dir==='UP');
+  if(opposite) return;
+  this.nextDir = d;
+};
+Snake.prototype.step = function(){
+  if(this.nextDir) this.dir = this.nextDir;
+  if(!this.dir) return false;
+  const head = this.head();
+  let nx = head.x, ny = head.y;
+  if(this.dir === 'LEFT') nx--;
+  if(this.dir === 'RIGHT') nx++;
+  if(this.dir === 'UP') ny--;
+  if(this.dir === 'DOWN') ny++;
+  // add new head
+  this.segments.unshift({x:nx,y:ny});
+  // unless we grew, pop tail - growth handled externally by grow()
+  if(!this._growing) this.segments.pop();
+  else {
+    this._growing--;
+  }
+  return true;
+};
+Snake.prototype.grow = function(n=1){
+  this._growing = (this._growing || 0) + n;
+};
+Snake.prototype.shrink = function(n=1){
+  for(let i=0;i<n;i++){
+    if(this.segments.length>1) this.segments.pop();
+  }
+};
+Snake.prototype.collidesWithBodyExceptHead = function(){
+  const head = this.head();
+  for(let i=1;i<this.segments.length;i++){
+    if(this.segments[i].x === head.x && this.segments[i].y === head.y) return true;
+  }
+  return false;
+};
+
+/* ----------------------------
+   Input handling (keyboard + mobile swipes) - FIXED VERSION
+   ---------------------------- */
+(function(){
+  // Keyboard arrow keys and WASD
+  window.addEventListener('keydown', (e)=>{
+    if(e.key === ' '){ // space: pause/resume
+      e.preventDefault();
+      Game.togglePause();
+      return;
+    }
+    const map = { ArrowLeft:'LEFT', ArrowRight:'RIGHT', ArrowUp:'UP', ArrowDown:'DOWN', a:'LEFT', d:'RIGHT', w:'UP', s:'DOWN' };
+    const d = map[e.key];
+    if(d && Game.isRunning()){
+      // Get the actual snake instance from the Game
+      const snake = Game.getSnake();
+      if(snake) {
+        snake.setDirection(d);
+        e.preventDefault(); // prevent scrolling
+      }
+    }
+  });
+
+  // Touch swipe detection
+  let touchStart = null;
+  gameWrap.addEventListener('touchstart', e=>{
+    const t = e.touches[0];
+    touchStart = { x: t.clientX, y: t.clientY, t: performance.now() };
+  }, {passive:true});
+  gameWrap.addEventListener('touchend', e=>{
+    if(!touchStart) return;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - touchStart.x;
+    const dy = t.clientY - touchStart.y;
+    if(Math.abs(dx) < 20 && Math.abs(dy) < 20) { touchStart = null; return; }
+    
+    if(Game.isRunning()) {
+      const snake = Game.getSnake();
+      if(snake) {
+        if(Math.abs(dx) > Math.abs(dy)){
+          // horizontal swipe
+          if(dx > 0) snake.setDirection('RIGHT');
+          else snake.setDirection('LEFT');
+        } else {
+          // vertical swipe
+          if(dy > 0) snake.setDirection('DOWN');
+          else snake.setDirection('UP');
+        }
+      }
+    }
+    touchStart = null;
+  }, {passive:true});
+})();
+
+/* ----------------------------
+   UI interactions: menu, start, mode selection, color selections
+   ---------------------------- */
+(function(){
+  // Mode cards click
+  modeGrid.querySelectorAll('.mode-card').forEach(card=>{
+    card.addEventListener('click', ()=>{
+      modeGrid.querySelectorAll('.mode-card').forEach(c=>c.classList.remove('selected'));
+      card.classList.add('selected');
+      chosenMode = card.dataset.mode;
+      $('#modeVal').innerText = card.innerText.split('\n')[0];
+      selectedModePill.innerText = $('#modeVal').innerText;
+    });
+  });
+  // Default select classic
+  modeGrid.querySelector('.mode-card[data-mode="classic"]').classList.add('selected');
+
+  // Color buttons
+  colorButtons.forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      colorButtons.forEach(b=>b.classList.remove('selected'));
+      btn.classList.add('selected');
+      chosenColor = btn.dataset.color;
+    });
+  });
+  // default rainbow selected
+  const defBtn = colorButtons.find(b=>b.dataset.color==='rainbow');
+  if(defBtn) defBtn.classList.add('selected');
+
+  // Start game button
+  startGameBtn.addEventListener('click', ()=>{
+    $('#menuOverlay').style.display = 'none';
+    // initialize game with chosen options
+    const opts = { mode: chosenMode, difficulty: difficultySelect.value, color: chosenColor };
+    // create actual playing canvas scale to wrapper
+    setupCanvasScale();
+    // Start the game
+    Game.start(opts);
+    // small tap to resume audio if needed (browsers require interaction)
+    try{ AudioSys.ctx.resume(); }catch(e){}
+  });
+
+  // Open menu (pause)
+  openMenuBtn.addEventListener('click', ()=>{
+    $('#menuOverlay').style.display = 'flex';
+    if(Game.isRunning()) Game.togglePause();
+  });
+
+  // restart right panel
+  restartBtnRight.addEventListener('click', ()=>{
+    $('#menuOverlay').style.display = 'flex';
+  });
+
+  // Reset high score
+  $('#resetHighBtn').addEventListener('click', ()=>{
+    Object.values(HS_KEYS).forEach(k=>localStorage.removeItem(k));
+    loadHighs();
+    alert('High scores reset.');
+  });
+
+  // Pause button
+  pauseBtn.addEventListener('click', ()=>{
+    Game.togglePause();
+  });
+
+  // Show instructions (quick)
+  $('#showInstructionsBtn').addEventListener('click', ()=>{
+    alert('Controls: Arrow keys/WASD to move. Space to pause. Swipe to move on mobile. Collect power-ups in Power-ups mode. Avoid obstacles. In Time Attack, score as much as you can in 60s.');
+  });
+})();
+
+/* ----------------------------
+   Canvas responsiveness & scaling
+   - we keep internal canvas pixel resolution based on grid * box,
+     but we will scale the displayed canvas using CSS to fit the container.
+   ---------------------------- */
+function setupCanvasScale(){
+  // compute desired canvas pixel size based on selected difficulty
+  const diff = DIFFICULTIES[difficultySelect.value];
+  const targetWidth = diff.gridW * 20;
+  const targetHeight = diff.gridH * 20;
+  gameCanvas.width = targetWidth; gameCanvas.height = targetHeight;
+  bgCanvas.width = targetWidth; bgCanvas.height = targetHeight;
+  // set style size via CSS to make it responsive inside wrapper
+  gameCanvas.style.width = '100%';
+  gameCanvas.style.height = '100%';
+  bgCanvas.style.width = '100%';
+  bgCanvas.style.height = '100%';
+  // initialize background sizes
+  BgAnim.resize(gameCanvas.width, gameCanvas.height);
+}
+
+/* ----------------------------
+   Initialize background animation loop and resize listener
+   ---------------------------- */
+(function(){
+  function resizeAll(){
+    // compute wrapper pixel size for canvases
+    // we want canvases to have internal resolution based on chosen difficulty; if not yet chosen, use medium
+    const diff = DIFFICULTIES[difficultySelect.value] || DIFFICULTIES.medium;
+    const targetWidth = diff.gridW * 20;
+    const targetHeight = diff.gridH * 20;
+    bgCanvas.width = targetWidth; bgCanvas.height = targetHeight;
+    gameCanvas.width = targetWidth; gameCanvas.height = targetHeight;
+    // scale to fit wrapper size via CSS (native browser scaling)
+    // This allows crisp pixel grid while being responsive
+    // Also notify BgAnim
+    BgAnim.resize(bgCanvas.width, bgCanvas.height);
+    // set a CSS size that fits the gameWrap
+    gameCanvas.style.width = '100%';
+    gameCanvas.style.height = '100%';
+    bgCanvas.style.width = '100%';
+    bgCanvas.style.height = '100%';
+  }
+  window.addEventListener('resize', resizeAll);
+  // initial call
+  resizeAll();
+  // start background RAF loop
+  (function bgLoop(ts){
+    BgAnim.tick(ts || performance.now());
+    requestAnimationFrame(bgLoop);
+  })();
+})();
+
+/* ----------------------------
+   Misc helpers & initial UI state
+   ---------------------------- */
+(function(){
+  // populate highVal with current best for selected mode
+  $('#highVal').innerText = Math.max(
+    +(localStorage.getItem(HS_KEYS.classic)||0),
+    +(localStorage.getItem(HS_KEYS.powerups)||0),
+    +(localStorage.getItem(HS_KEYS.time)||0),
+    +(localStorage.getItem(HS_KEYS.survival)||0)
+  );
+})();
+
+</script>
+</body>
+</html>
