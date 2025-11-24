@@ -1,0 +1,1071 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CSV Data Analyzer</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #f5f1e8 0%, #e8dcc8 100%);
+            color: #3a3a3a;
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: #fefdfb;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            padding: 30px;
+        }
+
+        h1 {
+            color: #5a4a3a;
+            margin-bottom: 10px;
+            font-size: 2em;
+        }
+
+        .subtitle {
+            color: #8a7a6a;
+            margin-bottom: 30px;
+            font-size: 0.95em;
+        }
+
+        .upload-section {
+            background: #f9f6f0;
+            border: 2px dashed #c4b5a0;
+            border-radius: 8px;
+            padding: 40px;
+            text-align: center;
+            margin-bottom: 30px;
+            transition: all 0.3s;
+        }
+
+        .upload-section:hover {
+            border-color: #9a8a7a;
+            background: #f5f0e8;
+        }
+
+        .upload-section.drag-over {
+            border-color: #7a6a5a;
+            background: #f0e8d8;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        .upload-label {
+            display: inline-block;
+            background: #7a6a5a;
+            color: white;
+            padding: 12px 30px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background 0.3s;
+            font-weight: 500;
+        }
+
+        .upload-label:hover {
+            background: #5a4a3a;
+        }
+
+        .upload-info {
+            margin-top: 15px;
+            color: #8a7a6a;
+            font-size: 0.9em;
+        }
+
+        .controls {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            margin-bottom: 25px;
+            padding: 20px;
+            background: #f9f6f0;
+            border-radius: 8px;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .control-group label {
+            font-size: 0.85em;
+            color: #5a4a3a;
+            font-weight: 500;
+        }
+
+        select, input[type="text"], input[type="number"] {
+            padding: 8px 12px;
+            border: 1px solid #d4c4b0;
+            border-radius: 4px;
+            background: white;
+            color: #3a3a3a;
+            font-size: 0.9em;
+        }
+
+        select:focus, input:focus {
+            outline: none;
+            border-color: #7a6a5a;
+        }
+
+        button {
+            background: #7a6a5a;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9em;
+            transition: all 0.3s;
+            font-weight: 500;
+        }
+
+        button:hover {
+            background: #5a4a3a;
+            transform: translateY(-1px);
+        }
+
+        button:disabled {
+            background: #c4b5a0;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: #f9f6f0;
+            padding: 20px;
+            border-radius: 8px;
+            border-left: 4px solid #7a6a5a;
+        }
+
+        .stat-label {
+            font-size: 0.85em;
+            color: #8a7a6a;
+            margin-bottom: 5px;
+        }
+
+        .stat-value {
+            font-size: 1.5em;
+            font-weight: 600;
+            color: #5a4a3a;
+        }
+
+        .section {
+            margin-bottom: 30px;
+        }
+
+        .section-title {
+            font-size: 1.3em;
+            color: #5a4a3a;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #e8dcc8;
+        }
+
+        .table-container {
+            overflow-x: auto;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+        }
+
+        th {
+            background: #7a6a5a;
+            color: white;
+            padding: 12px;
+            text-align: left;
+            font-weight: 500;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        td {
+            padding: 10px 12px;
+            border-bottom: 1px solid #e8dcc8;
+        }
+
+        tr:hover {
+            background: #faf8f4;
+        }
+
+        .anomaly-row {
+            background: #ffe8e8 !important;
+        }
+
+        .anomaly-cell {
+            font-weight: 600;
+            color: #c44;
+        }
+
+        .chart-container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .tooltip {
+            position: relative;
+            display: inline-block;
+        }
+
+        .tooltip .tooltiptext {
+            visibility: hidden;
+            width: 200px;
+            background-color: #5a4a3a;
+            color: #fff;
+            text-align: center;
+            border-radius: 6px;
+            padding: 8px;
+            position: absolute;
+            z-index: 1;
+            bottom: 125%;
+            left: 50%;
+            margin-left: -100px;
+            opacity: 0;
+            transition: opacity 0.3s;
+            font-size: 0.85em;
+        }
+
+        .tooltip:hover .tooltiptext {
+            visibility: visible;
+            opacity: 1;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .info-badge {
+            display: inline-block;
+            background: #e8dcc8;
+            color: #5a4a3a;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 0.85em;
+            margin-left: 10px;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 15px;
+            }
+
+            h1 {
+                font-size: 1.5em;
+            }
+
+            .controls {
+                flex-direction: column;
+            }
+
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📊 CSV Data Analyzer</h1>
+        <p class="subtitle">Upload any CSV file to analyze, filter, and visualize your data</p>
+
+        <div class="upload-section" id="uploadSection">
+            <input type="file" id="fileInput" accept=".csv" />
+            <label for="fileInput" class="upload-label tooltip">
+                Choose CSV File
+                <span class="tooltiptext">Select a CSV file from your computer to begin analysis</span>
+            </label>
+            <p class="upload-info">or drag and drop your file here</p>
+        </div>
+
+        <div id="mainContent" class="hidden">
+            <!-- Summary Statistics -->
+            <div class="section">
+                <h2 class="section-title">📈 Summary Statistics</h2>
+                <div id="summaryStats" class="stats-grid"></div>
+            </div>
+
+            <!-- Controls -->
+            <div class="section">
+                <h2 class="section-title">🔧 Data Controls</h2>
+                <div class="controls">
+                    <div class="control-group tooltip">
+                        <label>Anomaly Detection Method:</label>
+                        <select id="anomalyMethod">
+                            <option value="">— Select —</option>
+                            <option value="zscore">Z-Score</option>
+                            <option value="stddev">Standard Deviation Threshold</option>
+                            <option value="iqr">IQR Method</option>
+                        </select>
+                        <span class="tooltiptext">Choose how to identify unusual values in your data</span>
+                    </div>
+
+                    <div class="control-group tooltip">
+                        <label>Threshold (σ):</label>
+                        <input type="number" id="zscoreThreshold" min="1" max="10" step="0.1" value="3">
+                        <span class="tooltiptext">Set the standard deviation threshold (1-10). Lower values = more sensitive</span>
+                    </div>
+
+                    <div class="control-group tooltip">
+                        <label>Filter Column:</label>
+                        <select id="filterColumn">
+                            <option value="">All Columns</option>
+                        </select>
+                        <span class="tooltiptext">Select a column to filter data by specific criteria</span>
+                    </div>
+
+                    <div class="control-group tooltip">
+                        <label>Filter Value:</label>
+                        <input type="text" id="filterValue" placeholder="Enter filter value">
+                        <span class="tooltiptext">Enter a value to filter rows (supports partial matches)</span>
+                    </div>
+
+                    <div class="control-group">
+                        <label>&nbsp;</label>
+                        <div class="button-group">
+                            <button onclick="applyFilter()" class="tooltip">
+                                Apply Filter
+                                <span class="tooltiptext">Filter data based on selected column and value</span>
+                            </button>
+                            <button onclick="resetFilter()" class="tooltip">
+                                Reset
+                                <span class="tooltiptext">Clear all filters and show all data</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="button-group">
+                    <button onclick="toggleAnomalies()" id="anomalyToggle" class="tooltip">
+                        Show Only Anomalies
+                        <span class="tooltiptext">Display only rows with unusual values</span>
+                    </button>
+                    <button onclick="downloadFiltered()" class="tooltip">
+                        📥 Download Filtered Data
+                        <span class="tooltiptext">Export currently visible rows as CSV</span>
+                    </button>
+                    <button onclick="downloadCleanedData()" class="tooltip">
+                        🧹 Download Cleaned Data
+                        <span class="tooltiptext">Export all data with anomalous values removed (replaced with blanks)</span>
+                    </button>
+                    <button onclick="generateCharts()" class="tooltip">
+                        📊 Generate Charts
+                        <span class="tooltiptext">Create visualizations for numeric columns</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Charts -->
+            <div id="chartsSection" class="section hidden">
+                <h2 class="section-title">📊 Data Visualizations</h2>
+                <div class="controls">
+                    <div class="control-group tooltip">
+                        <label>Select Column:</label>
+                        <select id="chartColumn">
+                            <option value="">— Select Column —</option>
+                        </select>
+                        <span class="tooltiptext">Choose which column to visualize</span>
+                    </div>
+
+                    <div class="control-group tooltip">
+                        <label>Chart Type:</label>
+                        <select id="chartType">
+                            <option value="line">Line Chart</option>
+                            <option value="bar">Bar Chart</option>
+                            <option value="scatter">Scatter Plot</option>
+                            <option value="area">Area Chart</option>
+                            <option value="histogram">Histogram</option>
+                        </select>
+                        <span class="tooltiptext">Choose the visualization style</span>
+                    </div>
+
+                    <div class="control-group">
+                        <label>&nbsp;</label>
+                        <button onclick="createCustomChart()" class="tooltip">
+                            Create Chart
+                            <span class="tooltiptext">Generate visualization with selected options</span>
+                        </button>
+                    </div>
+                </div>
+                <div id="chartsContainer"></div>
+            </div>
+
+            <!-- Column Statistics -->
+            <div class="section">
+                <h2 class="section-title">📋 Column Statistics</h2>
+                <div class="table-container">
+                    <table id="columnStatsTable">
+                        <thead>
+                            <tr>
+                                <th>Column</th>
+                                <th>Type</th>
+                                <th>Count</th>
+                                <th>Mean</th>
+                                <th>Median</th>
+                                <th>Std Dev</th>
+                                <th>Min</th>
+                                <th>Max</th>
+                            </tr>
+                        </thead>
+                        <tbody id="columnStatsBody"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Data Table -->
+            <div class="section">
+                <h2 class="section-title">🗂️ Data Table<span class="info-badge" id="rowCount"></span></h2>
+                <div class="table-container">
+                    <div id="dataTableContainer"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let csvData = [];
+        let headers = [];
+        let filteredData = [];
+        let showingAnomalies = false;
+        let anomalyRows = new Set();
+        let anomalousCells = new Map(); // Map to track specific anomalous cells
+        let chartInstances = [];
+
+        // File upload handling
+        const fileInput = document.getElementById('fileInput');
+        const uploadSection = document.getElementById('uploadSection');
+
+        fileInput.addEventListener('change', handleFile);
+
+        // Drag and drop
+        uploadSection.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadSection.classList.add('drag-over');
+        });
+
+        uploadSection.addEventListener('dragleave', () => {
+            uploadSection.classList.remove('drag-over');
+        });
+
+        uploadSection.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadSection.classList.remove('drag-over');
+            const file = e.dataTransfer.files[0];
+            if (file && file.name.endsWith('.csv')) {
+                processFile(file);
+            }
+        });
+
+        function handleFile(e) {
+            const file = e.target.files[0];
+            if (file) {
+                processFile(file);
+            }
+        }
+
+        function processFile(file) {
+            Papa.parse(file, {
+                header: true,
+                dynamicTyping: true,
+                skipEmptyLines: true,
+                complete: function(results) {
+                    csvData = results.data;
+                    headers = results.meta.fields;
+                    filteredData = [...csvData];
+                    initializeAnalysis();
+                }
+            });
+        }
+
+        function initializeAnalysis() {
+            document.getElementById('mainContent').classList.remove('hidden');
+            populateFilterColumn();
+            populateChartColumn();
+            calculateStatistics();
+            detectAnomalies();
+            renderTable();
+            updateRowCount();
+        }
+
+        function populateFilterColumn() {
+            const select = document.getElementById('filterColumn');
+            select.innerHTML = '<option value="">All Columns</option>';
+            headers.forEach(header => {
+                const option = document.createElement('option');
+                option.value = header;
+                option.textContent = header;
+                select.appendChild(option);
+            });
+        }
+
+        function populateChartColumn() {
+            const select = document.getElementById('chartColumn');
+            select.innerHTML = '<option value="">— Select Column —</option>';
+            
+            const numericColumns = headers.filter(header => {
+                const values = csvData.map(row => row[header]).filter(v => v !== null && v !== '');
+                const numericValues = values.filter(isNumeric);
+                return numericValues.length > values.length * 0.5;
+            });
+
+            numericColumns.forEach(header => {
+                const option = document.createElement('option');
+                option.value = header;
+                option.textContent = header;
+                select.appendChild(option);
+            });
+        }
+
+        function isNumeric(val) {
+            return !isNaN(parseFloat(val)) && isFinite(val);
+        }
+
+        function calculateStatistics() {
+            // Summary stats
+            const summaryDiv = document.getElementById('summaryStats');
+            summaryDiv.innerHTML = `
+                <div class="stat-card">
+                    <div class="stat-label">Total Rows</div>
+                    <div class="stat-value">${csvData.length}</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Total Columns</div>
+                    <div class="stat-value">${headers.length}</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Numeric Columns</div>
+                    <div class="stat-value">${headers.filter(h => isNumeric(csvData[0][h])).length}</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Text Columns</div>
+                    <div class="stat-value">${headers.filter(h => !isNumeric(csvData[0][h])).length}</div>
+                </div>
+            `;
+
+            // Column stats
+            const tbody = document.getElementById('columnStatsBody');
+            tbody.innerHTML = '';
+
+            headers.forEach(header => {
+                const values = csvData.map(row => row[header]).filter(v => v !== null && v !== '');
+                const numericValues = values.filter(isNumeric).map(Number);
+                const isNum = numericValues.length > values.length * 0.5;
+
+                const row = document.createElement('tr');
+                
+                if (isNum && numericValues.length > 0) {
+                    const mean = numericValues.reduce((a, b) => a + b, 0) / numericValues.length;
+                    const sorted = [...numericValues].sort((a, b) => a - b);
+                    const median = sorted[Math.floor(sorted.length / 2)];
+                    const variance = numericValues.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / numericValues.length;
+                    const stdDev = Math.sqrt(variance);
+                    const min = Math.min(...numericValues);
+                    const max = Math.max(...numericValues);
+
+                    row.innerHTML = `
+                        <td><strong>${header}</strong></td>
+                        <td>Numeric</td>
+                        <td>${numericValues.length}</td>
+                        <td>${mean.toFixed(2)}</td>
+                        <td>${median.toFixed(2)}</td>
+                        <td>${stdDev.toFixed(2)}</td>
+                        <td>${min.toFixed(2)}</td>
+                        <td>${max.toFixed(2)}</td>
+                    `;
+                } else {
+                    row.innerHTML = `
+                        <td><strong>${header}</strong></td>
+                        <td>Text</td>
+                        <td>${values.length}</td>
+                        <td>—</td>
+                        <td>—</td>
+                        <td>—</td>
+                        <td>—</td>
+                        <td>—</td>
+                    `;
+                }
+
+                tbody.appendChild(row);
+            });
+        }
+
+        function detectAnomalies() {
+            anomalyRows.clear();
+            anomalousCells.clear();
+            const method = document.getElementById('anomalyMethod').value;
+            
+            // If no method selected, don't detect anomalies
+            if (!method) {
+                return;
+            }
+            
+            const threshold = parseFloat(document.getElementById('zscoreThreshold').value) || 3;
+
+            headers.forEach(header => {
+                const numericValues = csvData.map((row, idx) => ({
+                    value: row[header],
+                    index: idx
+                })).filter(item => isNumeric(item.value));
+
+                if (numericValues.length === 0) return;
+
+                const values = numericValues.map(item => Number(item.value));
+                const mean = values.reduce((a, b) => a + b, 0) / values.length;
+                const variance = values.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / values.length;
+                const stdDev = Math.sqrt(variance);
+                
+                if (method === 'zscore') {
+                    numericValues.forEach(item => {
+                        const zScore = Math.abs((Number(item.value) - mean) / stdDev);
+                        if (zScore > threshold) {
+                            anomalyRows.add(item.index);
+                            const cellKey = `${item.index}-${header}`;
+                            anomalousCells.set(cellKey, true);
+                        }
+                    });
+                } else if (method === 'stddev') {
+                    numericValues.forEach(item => {
+                        const deviation = Math.abs(Number(item.value) - mean);
+                        if (deviation > threshold * stdDev) {
+                            anomalyRows.add(item.index);
+                            const cellKey = `${item.index}-${header}`;
+                            anomalousCells.set(cellKey, true);
+                        }
+                    });
+                } else if (method === 'iqr') {
+                    const sorted = [...values].sort((a, b) => a - b);
+                    const q1 = sorted[Math.floor(sorted.length * 0.25)];
+                    const q3 = sorted[Math.floor(sorted.length * 0.75)];
+                    const iqr = q3 - q1;
+                    const lowerBound = q1 - 1.5 * iqr;
+                    const upperBound = q3 + 1.5 * iqr;
+
+                    numericValues.forEach(item => {
+                        if (Number(item.value) < lowerBound || Number(item.value) > upperBound) {
+                            anomalyRows.add(item.index);
+                            const cellKey = `${item.index}-${header}`;
+                            anomalousCells.set(cellKey, true);
+                        }
+                    });
+                }
+            });
+        }
+
+        function renderTable() {
+            const container = document.getElementById('dataTableContainer');
+            const dataToShow = showingAnomalies 
+                ? filteredData.filter((_, idx) => anomalyRows.has(csvData.indexOf(_)))
+                : filteredData;
+
+            let html = '<table><thead><tr>';
+            headers.forEach(header => {
+                html += `<th>${header}</th>`;
+            });
+            html += '</tr></thead><tbody>';
+
+            dataToShow.forEach((row, idx) => {
+                const originalIdx = csvData.indexOf(row);
+                const isAnomaly = anomalyRows.has(originalIdx);
+                html += `<tr class="${isAnomaly ? 'anomaly-row' : ''}">`;
+                
+                headers.forEach(header => {
+                    const value = row[header] ?? '';
+                    html += `<td>${value}</td>`;
+                });
+                
+                html += '</tr>';
+            });
+
+            html += '</tbody></table>';
+            container.innerHTML = html;
+        }
+
+        function applyFilter() {
+            const column = document.getElementById('filterColumn').value;
+            const value = document.getElementById('filterValue').value.toLowerCase();
+
+            if (!column || !value) {
+                filteredData = [...csvData];
+            } else {
+                filteredData = csvData.filter(row => {
+                    const cellValue = String(row[column] ?? '').toLowerCase();
+                    return cellValue.includes(value);
+                });
+            }
+
+            renderTable();
+            updateRowCount();
+        }
+
+        function updateFilterRealTime() {
+            applyFilter();
+        }
+
+        function resetFilter() {
+            document.getElementById('filterColumn').value = '';
+            document.getElementById('filterValue').value = '';
+            document.getElementById('zscoreThreshold').value = '3';
+            document.getElementById('anomalyMethod').value = '';
+            filteredData = [...csvData];
+            showingAnomalies = false;
+            anomalyRows.clear();
+            anomalousCells.clear();
+            document.getElementById('anomalyToggle').textContent = 'Show Only Anomalies';
+            renderTable();
+            updateRowCount();
+        }
+
+        function toggleAnomalies() {
+            showingAnomalies = !showingAnomalies;
+            document.getElementById('anomalyToggle').textContent = 
+                showingAnomalies ? 'Show All Data' : 'Show Only Anomalies';
+            renderTable();
+            updateRowCount();
+        }
+
+        function updateRowCount() {
+            const dataToShow = showingAnomalies 
+                ? filteredData.filter((_, idx) => anomalyRows.has(csvData.indexOf(_)))
+                : filteredData;
+            document.getElementById('rowCount').textContent = 
+                `${dataToShow.length} rows displayed`;
+        }
+
+        function downloadFiltered() {
+            const dataToShow = showingAnomalies 
+                ? filteredData.filter((_, idx) => anomalyRows.has(csvData.indexOf(_)))
+                : filteredData;
+
+            const csv = Papa.unparse(dataToShow);
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'filtered_data.csv';
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function downloadCleanedData() {
+            if (!document.getElementById('anomalyMethod').value) {
+                alert('Please select an anomaly detection method first to identify anomalies to remove.');
+                return;
+            }
+
+            if (anomalousCells.size === 0) {
+                alert('No anomalies detected. The data is already clean!');
+                return;
+            }
+
+            // Create a deep copy of the data
+            const cleanedData = csvData.map((row, rowIndex) => {
+                const newRow = { ...row };
+                
+                // Replace anomalous values with empty string
+                headers.forEach(header => {
+                    const cellKey = `${rowIndex}-${header}`;
+                    if (anomalousCells.has(cellKey)) {
+                        newRow[header] = '';
+                    }
+                });
+                
+                return newRow;
+            });
+
+            const csv = Papa.unparse(cleanedData);
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'cleaned_data.csv';
+            a.click();
+            URL.revokeObjectURL(url);
+            
+            // Show confirmation message
+            const anomalyCount = anomalousCells.size;
+            alert(`Successfully exported cleaned data!\n${anomalyCount} anomalous value(s) replaced with blank cells.`);
+        }
+
+        function generateCharts() {
+            const chartsSection = document.getElementById('chartsSection');
+            chartsSection.classList.remove('hidden');
+        }
+
+        function createCustomChart() {
+            const column = document.getElementById('chartColumn').value;
+            const chartType = document.getElementById('chartType').value;
+            
+            if (!column) {
+                alert('Please select a column to visualize');
+                return;
+            }
+
+            const chartsContainer = document.getElementById('chartsContainer');
+            
+            // Clear existing charts
+            chartInstances.forEach(chart => chart.destroy());
+            chartInstances = [];
+            chartsContainer.innerHTML = '';
+
+            // Create chart container
+            const chartDiv = document.createElement('div');
+            chartDiv.className = 'chart-container';
+            const chartId = `chart-${Date.now()}`;
+            chartDiv.innerHTML = `<canvas id="${chartId}"></canvas>`;
+            chartsContainer.appendChild(chartDiv);
+
+            const values = csvData.map(row => Number(row[column])).filter(v => !isNaN(v));
+            
+            let config;
+            
+            if (chartType === 'histogram') {
+                // Create histogram with automatic binning
+                const min = Math.min(...values);
+                const max = Math.max(...values);
+                const range = max - min;
+                
+                // Use Sturges' formula for bin count: k = ceil(log2(n) + 1)
+                const binCount = Math.ceil(Math.log2(values.length) + 1);
+                const binWidth = range / binCount;
+                
+                // Create bins
+                const bins = Array(binCount).fill(0);
+                const binLabels = [];
+                
+                for (let i = 0; i < binCount; i++) {
+                    const binStart = min + (i * binWidth);
+                    const binEnd = min + ((i + 1) * binWidth);
+                    binLabels.push(`${binStart.toFixed(2)} - ${binEnd.toFixed(2)}`);
+                }
+                
+                // Count values in each bin
+                values.forEach(value => {
+                    let binIndex = Math.floor((value - min) / binWidth);
+                    if (binIndex >= binCount) binIndex = binCount - 1; // Handle edge case for max value
+                    bins[binIndex]++;
+                });
+                
+                config = {
+                    type: 'bar',
+                    data: {
+                        labels: binLabels,
+                        datasets: [{
+                            label: 'Frequency',
+                            data: bins,
+                            backgroundColor: 'rgba(122, 106, 90, 0.7)',
+                            borderColor: '#7a6a5a',
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: true,
+                        plugins: {
+                            title: {
+                                display: true,
+                                text: `${column} - Histogram (${binCount} bins, ${values.length} records)`,
+                                font: { size: 16 }
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        return `Frequency: ${context.parsed.y}`;
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                title: {
+                                    display: true,
+                                    text: 'Frequency'
+                                }
+                            },
+                            x: {
+                                title: {
+                                    display: true,
+                                    text: 'Value Range'
+                                }
+                            }
+                        }
+                    }
+                };
+            } else if (chartType === 'scatter') {
+                // For scatter plot, use index as x-axis
+                const scatterData = values.map((value, index) => ({
+                    x: index + 1,
+                    y: value
+                }));
+                
+                config = {
+                    type: 'scatter',
+                    data: {
+                        datasets: [{
+                            label: column,
+                            data: scatterData,
+                            backgroundColor: 'rgba(122, 106, 90, 0.6)',
+                            borderColor: '#7a6a5a',
+                            pointRadius: values.length > 200 ? 2 : 4,
+                            pointHoverRadius: 6
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: true,
+                        plugins: {
+                            title: {
+                                display: true,
+                                text: `${column} - Scatter Plot (${values.length} records)`,
+                                font: { size: 16 }
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    title: function(context) {
+                                        return `Row ${context[0].parsed.x}`;
+                                    },
+                                    label: function(context) {
+                                        return `Value: ${context.parsed.y.toFixed(2)}`;
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: false,
+                                title: {
+                                    display: true,
+                                    text: column
+                                }
+                            },
+                            x: {
+                                title: {
+                                    display: true,
+                                    text: 'Row Number'
+                                }
+                            }
+                        }
+                    }
+                };
+            } else {
+                // For other chart types (line, bar, area)
+                const labels = values.map((_, idx) => `Row ${idx + 1}`);
+
+                config = {
+                    type: chartType === 'area' ? 'line' : chartType,
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: column,
+                            data: values,
+                            borderColor: '#7a6a5a',
+                            backgroundColor: chartType === 'area' ? 'rgba(122, 106, 90, 0.3)' : 'rgba(122, 106, 90, 0.7)',
+                            tension: 0.4,
+                            pointRadius: values.length > 100 ? 0 : 3,
+                            pointHoverRadius: 5,
+                            fill: chartType === 'area'
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: true,
+                        plugins: {
+                            title: {
+                                display: true,
+                                text: `${column} - ${chartType.charAt(0).toUpperCase() + chartType.slice(1)} (${values.length} records)`,
+                                font: { size: 16 }
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    title: function(context) {
+                                        return `Row ${context[0].dataIndex + 1}`;
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: false
+                            },
+                            x: {
+                                ticks: {
+                                    maxTicksLimit: 20,
+                                    callback: function(value, index) {
+                                        const totalPoints = this.chart.data.labels.length;
+                                        const step = Math.ceil(totalPoints / 20);
+                                        return index % step === 0 ? this.chart.data.labels[index] : '';
+                                    }
+                                }
+                            }
+                        },
+                        interaction: {
+                            mode: 'nearest',
+                            axis: 'x',
+                            intersect: false
+                        }
+                    }
+                };
+            }
+
+            const chart = new Chart(document.getElementById(chartId), config);
+            chartInstances.push(chart);
+        }
+
+        // Detect anomalies when method or threshold changes
+        document.getElementById('anomalyMethod').addEventListener('change', () => {
+            detectAnomalies();
+            renderTable();
+            updateRowCount();
+        });
+
+        document.getElementById('zscoreThreshold').addEventListener('input', () => {
+            const method = document.getElementById('anomalyMethod').value;
+            if (method === 'zscore' || method === 'stddev') {
+                detectAnomalies();
+                renderTable();
+                updateRowCount();
+            }
+        });
+
+        // Real-time filter updates
+        document.getElementById('filterColumn').addEventListener('change', updateFilterRealTime);
+        document.getElementById('filterValue').addEventListener('input', updateFilterRealTime);
+    </script>
+</body>
+</html>
