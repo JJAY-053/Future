@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>CSV Analysis Tool</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <style>
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg,#f5f1e8 0%,#ede7d9 100%);
+            color:#333; padding:20px; line-height:1.6;
+        }
+        .container { max-width:1400px; margin:0 auto; background:#fff; border-radius:12px; box-shadow:0 4px 20px rgba(0,0,0,0.1); padding:30px; }
+        h1 { color:#2c3e50; margin-bottom:10px; font-size:2em; }
+        .subtitle { color:#7f8c8d; margin-bottom:30px; font-size:.95em; }
+        .upload-section {
+            background:#fafaf8; border:2px dashed #bdc3c7; border-radius:8px; padding:30px; text-align:center; margin-bottom:30px; transition:all .3s ease;
+        }
+        .upload-section:hover { border-color:#95a5a6; background:#f5f5f3; }
+        .upload-section.dragover { border-color:#3498db; background:#e8f4f8; }
+        input[type=file] { display:none; }
+        .upload-btn { background:#3498db; color:#fff; padding:12px 30px; border:none; border-radius:6px; cursor:pointer; font-size:1em; transition:background .3s ease;}
+        .upload-btn:hover{ background:#2980b9; }
+        .search-section { margin:30px 0; padding:20px; background:#fafaf8; border-radius:8px; }
+        .search-box { display:flex; gap:10px; margin-bottom:15px; }
+        input[type=text] { flex:1; padding:12px; border:2px solid #ddd; border-radius:6px; font-size:1em; }
+        input[type=text]:focus { outline:none; border-color:#3498db; }
+        .btn { padding:12px 24px; border:none; border-radius:6px; cursor:pointer; font-size:1em; transition:all .3s ease; }
+        .btn-primary { background:#2ecc71; color:#fff; } .btn-primary:hover{ background:#27ae60; }
+        .btn-secondary { background:#95a5a6; color:#fff; } .btn-secondary:hover{ background:#7f8c8d; }
+        .helper-text { color:#7f8c8d; font-size:.9em; margin-top:10px; }
+        .column-select-container { margin-top:15px; padding:10px; background:#f9f9f9; border-radius:6px; border:1px solid #ddd; max-height:160px; overflow-y:auto; }
+        .column-select-label { font-size:.95em; color:#2c3e50; font-weight:600; margin-bottom:6px; }
+        .checkbox-item { display:flex; align-items:center; gap:6px; margin-bottom:5px; }
+        .table-container { max-height:400px; overflow:auto; border:1px solid #ddd; border-radius:8px; margin:20px 0; background:#fff; }
+        table { width:100%; border-collapse:collapse; font-size:.9em; }
+        th { background:#34495e; color:#fff; padding:12px; text-align:left; position:sticky; top:0; z-index:10; font-weight:600; }
+        td { padding:10px 12px; border-bottom:1px solid #ecf0f1; }
+        tr:hover { background:#f8f9fa; }
+        .highlight-row { background:#fff3cd !important; border-left:4px solid #ffc107; }
+        .section { margin:30px 0; padding:20px; background:#fafaf8; border-radius:8px; }
+        .section h2 { color:#2c3e50; margin-bottom:15px; font-size:1.5em; }
+        .stats-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(250px,1fr)); gap:15px; margin:20px 0; }
+        .stat-card { background:#fff; padding:20px; border-radius:8px; box-shadow:0 2px 8px rgba(0,0,0,0.08); }
+        .stat-label { color:#7f8c8d; font-size:.9em; margin-bottom:5px; } .stat-value { color:#2c3e50; font-size:1.8em; font-weight:bold; }
+        .chart-container { margin:20px 0; padding:20px; background:#fff; border-radius:8px; box-shadow:0 2px 8px rgba(0,0,0,0.08); }
+        .chart-title { color:#2c3e50; font-size:1.1em; margin-bottom:15px; font-weight:600; }
+        .correlation-list { list-style:none; padding:0; } .correlation-item { background:#fff; padding:15px; margin:10px 0; border-radius:6px; box-shadow:0 2px 8px rgba(0,0,0,0.08); }
+        .correlation-header { font-weight:600; color:#2c3e50; margin-bottom:8px; } .correlation-values { color:#555; font-size:.9em; }
+        .show-all-btn { background:#3498db; color:#fff; border:none; padding:6px 12px; border-radius:4px; cursor:pointer; font-size:.85em; margin-top:10px; float:right; transition:background .3s;}
+        .all-values { display:none; margin-top:10px; padding-top:10px; border-top:1px solid #ecf0f1; max-height:300px; overflow-y:auto; }
+        .all-values.visible { display:block; }
+        .value-item { padding:5px 0; color:#555; font-size:.9em; }
+        .no-data { text-align:center; color:#7f8c8d; padding:40px; font-style:italic; } .hidden{display:none;}
+        @media (max-width:768px){ .container{padding:15px;} .stats-grid{grid-template-columns:1fr;} }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📊 CSV Analysis Tool</h1>
+        <p class="subtitle">Upload your CSV file to analyze patterns, search values, and generate insights</p>
+
+        <div class="upload-section" id="uploadSection">
+            <p style="margin-bottom:15px;font-size:1.1em;color:#555;">📁 Drop your CSV file here or click to browse</p>
+            <label for="fileInput" class="upload-btn">Choose CSV File</label>
+            <input id="fileInput" type="file" accept=".csv" />
+            <p class="helper-text">Supports CSV files of any structure</p>
+        </div>
+
+        <div id="mainContent" class="hidden">
+            <div class="section">
+                <h2>Original Data</h2>
+                <p class="helper-text" style="margin-bottom:10px;">
+                    Total rows: <span id="totalRows">0</span> |
+                    Columns: <span id="totalColumns">0</span>
+                </p>
+                <div class="table-container" id="originalTableContainer">
+                    <div class="no-data">No data loaded</div>
+                </div>
+            </div>
+
+            <div class="search-section">
+                <h2 style="margin-bottom:15px;">🔍 Search & Filter</h2>
+                <div class="search-box">
+                    <input id="searchInput" type="text" placeholder="Enter one or more values (use ',' or '/' to separate)..." />
+                    <button class="btn btn-primary" onclick="searchData()">Search</button>
+                    <button class="btn btn-secondary" onclick="clearSearch()">Clear</button>
+                </div>
+
+                <div class="column-select-container" id="columnSelector">
+                    <div class="column-select-label">Select columns to search:</div>
+                    <label class="checkbox-item">
+                        <input id="selectAllColumns" type="checkbox" checked />
+                        <strong>Search in ALL columns</strong>
+                    </label>
+                    <div id="columnCheckboxes"></div>
+                </div>
+
+                <p class="helper-text">You may enter <strong>multiple values</strong> separated by <strong>,</strong> or <strong>/</strong>. (Maximum 10 values)</p>
+            </div>
+
+            <div id="resultsSection" class="hidden">
+                <div class="section" style="background:#e8f4f8;border-left:4px solid #3498db;margin-bottom:20px;">
+                    <p style="margin:0;color:#2c3e50;">💡 <strong>Tip:</strong> Matching rows in the original table above have been highlighted in yellow for easy reference.</p>
+                </div>
+
+                <div class="section">
+                    <h2>Filtered Results</h2>
+                    <p class="helper-text" style="margin-bottom:10px;">
+                        Showing rows containing: <strong id="searchTerm"></strong> |
+                        <span id="matchCount">0</span> matches found
+                    </p>
+                    <button class="btn btn-primary" onclick="downloadFiltered()" style="margin-bottom:15px;">⬇️ Download Filtered CSV</button>
+                    <div class="table-container" id="filteredTableContainer">
+                        <div class="no-data">No matches found</div>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <h2>📈 Statistics & Analysis</h2>
+                    <div class="stats-grid" id="statsGrid"></div>
+                </div>
+
+                <div class="section">
+                    <h2>🔗 Correlations & Patterns</h2>
+                    <p class="helper-text" style="margin-bottom:15px;">Values that frequently appear together with your search terms</p>
+                    <ul class="correlation-list" id="correlationList"></ul>
+                </div>
+
+                <div class="section">
+                    <h2>📊 Visualizations</h2>
+                    <div class="chart-container">
+                        <div class="chart-title">Value Distribution Across Columns</div>
+                        <canvas id="distributionChart"></canvas>
+                    </div>
+                    <div class="chart-container">
+                        <div class="chart-title">Top Co-occurring Values</div>
+                        <canvas id="correlationChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+<script>
+/*
+ Behavior summary implemented:
+ - Multi-value search (comma or slash separated, max 10)
+ - Column selection controls (Search ALL columns or choose specific columns)
+ - When specific columns chosen:
+     - filteredData = rows where any selected column contains any search term
+     - "Most Common in Column" (statistics) computed only across selected columns
+     - Correlations: list ALL values from EVERY OTHER column that appear in matched rows (no values omitted)
+ - When "Search in ALL columns" chosen:
+     - Behavior preserved: statistics and correlations computed as before,
+       with correlations excluding values that contain the search terms (keeps results concise)
+*/
+
+let originalData = [];
+let filteredData = [];
+let headers = [];
+let currentSearchTerms = [];
+
+// Drag & drop handlers
+const uploadSection = document.getElementById('uploadSection');
+uploadSection.addEventListener('dragover', e => { e.preventDefault(); uploadSection.classList.add('dragover'); });
+uploadSection.addEventListener('dragleave', () => uploadSection.classList.remove('dragover'));
+uploadSection.addEventListener('drop', e => {
+    e.preventDefault(); uploadSection.classList.remove('dragover');
+    const file = e.dataTransfer.files[0];
+    if (file && file.name.endsWith('.csv')) handleFile(file);
+});
+
+// File input
+document.getElementById('fileInput').addEventListener('change', e => {
+    if (e.target.files[0]) handleFile(e.target.files[0]);
+});
+
+function handleFile(file) {
+    Papa.parse(file, {
+        header: true,
+        dynamicTyping: true,
+        skipEmptyLines: true,
+        complete: results => {
+            originalData = results.data;
+            headers = results.meta.fields || [];
+            displayOriginalData();
+            generateColumnSelector();
+            document.getElementById('mainContent').classList.remove('hidden');
+        },
+        error: err => alert('Error parsing CSV: ' + err.message)
+    });
+}
+
+function displayOriginalData() {
+    const container = document.getElementById('originalTableContainer');
+    document.getElementById('totalRows').textContent = originalData.length;
+    document.getElementById('totalColumns').textContent = headers.length;
+
+    if (!originalData.length || !headers.length) {
+        container.innerHTML = '<div class="no-data">No data loaded</div>';
+        return;
+    }
+
+    let html = '<table><thead><tr>';
+    headers.forEach(h => html += `<th>${h}</th>`);
+    html += '</tr></thead><tbody>';
+
+    originalData.forEach((row, idx) => {
+        html += `<tr id="row-${idx}">`;
+        headers.forEach(h => {
+            const value = row[h] !== null && row[h] !== undefined ? row[h] : '';
+            html += `<td>${value}</td>`;
+        });
+        html += '</tr>';
+    });
+
+    html += '</tbody></table>';
+    container.innerHTML = html;
+}
+
+/* Generate column selector checkboxes */
+function generateColumnSelector() {
+    const boxContainer = document.getElementById('columnCheckboxes');
+    boxContainer.innerHTML = '';
+    headers.forEach((h, i) => {
+        boxContainer.innerHTML += `
+            <label class="checkbox-item">
+                <input type="checkbox" class="columnBox" value="${h}" checked />
+                ${h}
+            </label>
+        `;
+    });
+
+    const selectAll = document.getElementById('selectAllColumns');
+    // Ensure previous event not attached multiple times
+    selectAll.onchange = (e) => {
+        const checked = e.target.checked;
+        document.querySelectorAll('.columnBox').forEach(cb => cb.checked = checked);
+    };
+}
+
+/* Utility: get selected columns array */
+function getSelectedColumns() {
+    if (document.getElementById('selectAllColumns').checked) {
+        return [...headers];
+    }
+    const selected = [...document.querySelectorAll('.columnBox:checked')].map(n => n.value);
+    return selected;
+}
+
+/* PARSING search input into terms */
+function parseSearchTerms(rawInput) {
+    return rawInput.split(/[,/]/).map(s => s.trim()).filter(s => s).slice(0, 10);
+}
+
+/* MAIN SEARCH FUNCTION */
+function searchData() {
+    const rawInput = document.getElementById('searchInput').value.trim();
+    if (!rawInput) {
+        alert('Please enter one or more search terms');
+        return;
+    }
+
+    // normalize & limit to 10
+    currentSearchTerms = parseSearchTerms(rawInput).map(t => t.toLowerCase());
+    if (currentSearchTerms.length === 0) {
+        alert('Please enter valid search terms');
+        return;
+    }
+    if (currentSearchTerms.length > 10) {
+        alert('Maximum 10 search values allowed.');
+        return;
+    }
+
+    const selectedColumns = getSelectedColumns();
+    if (!selectedColumns || selectedColumns.length === 0) {
+        alert('Please select at least one column to search in.');
+        return;
+    }
+
+    // update search term label
+    document.getElementById('searchTerm').textContent = `${currentSearchTerms.join(', ')} (in ${selectedColumns.length === headers.length ? 'all columns' : 'selected columns'})`;
+
+    // Filter rows: a row matches if ANY selected column includes ANY search term
+    filteredData = originalData.filter(row => {
+        return selectedColumns.some(col => {
+            const v = row[col];
+            if (v === null || v === undefined) return false;
+            return currentSearchTerms.some(t => String(v).toLowerCase().includes(t));
+        });
+    });
+
+    // Highlight matched rows in original table
+    originalData.forEach((row, idx) => {
+        const rowEl = document.getElementById(`row-${idx}`);
+        if (!rowEl) return;
+        const matches = selectedColumns.some(col => {
+            const v = row[col];
+            if (v === null || v === undefined) return false;
+            return currentSearchTerms.some(t => String(v).toLowerCase().includes(t));
+        });
+        rowEl.classList.toggle('highlight-row', matches);
+    });
+
+    displayFilteredResults();
+    calculateStatistics(selectedColumns);
+    findCorrelations(selectedColumns);
+    createVisualizations(selectedColumns);
+
+    document.getElementById('resultsSection').classList.remove('hidden');
+}
+
+/* Display filtered table */
+function displayFilteredResults() {
+    const container = document.getElementById('filteredTableContainer');
+    document.getElementById('matchCount').textContent = filteredData.length;
+
+    if (!filteredData.length) {
+        container.innerHTML = '<div class="no-data">No matches found</div>';
+        return;
+    }
+
+    let html = '<table><thead><tr>';
+    headers.forEach(h => html += `<th>${h}</th>`);
+    html += '</tr></thead><tbody>';
+
+    filteredData.forEach(row => {
+        html += '<tr>';
+        headers.forEach(h => {
+            const value = row[h] !== null && row[h] !== undefined ? row[h] : '';
+            html += `<td>${value}</td>`;
+        });
+        html += '</tr>';
+    });
+
+    html += '</tbody></table>';
+    container.innerHTML = html;
+}
+
+/* STATISTICS: compute totals and "most common in column"
+   Behavior:
+   - If searching specific columns (not all), compute counts only among those selected columns.
+   - If searching all columns, compute across all headers (legacy behavior).
+*/
+function calculateStatistics(selectedColumns) {
+    const statsGrid = document.getElementById('statsGrid');
+    const totalMatches = filteredData.length;
+    const pct = originalData.length ? ((totalMatches / originalData.length) * 100).toFixed(1) : '0.0';
+
+    // colCounts: count of matched rows per column — but limited to selectedColumns when user selected specific columns
+    const colCounts = {};
+    const columnsToConsider = (selectedColumns && selectedColumns.length && selectedColumns.length !== headers.length)
+        ? selectedColumns
+        : headers.slice(); // if all selected, consider all headers
+
+    columnsToConsider.forEach(col => {
+        colCounts[col] = filteredData.filter(r => {
+            const v = r[col];
+            if (v === null || v === undefined) return false;
+            // count if this column contains any of the search terms
+            return currentSearchTerms.some(t => String(v).toLowerCase().includes(t));
+        }).length;
+    });
+
+    // choose most common among columnsToConsider; if none (all zero), fall back to headers[0]
+    const mostCommonEntry = Object.entries(colCounts).sort((a,b) => b[1] - a[1])[0] || [columnsToConsider[0] || headers[0], 0];
+
+    let html = `
+        <div class="stat-card">
+            <div class="stat-label">Total Matches</div>
+            <div class="stat-value">${totalMatches}</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Percentage of Dataset</div>
+            <div class="stat-value">${pct}%</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Most Common in Column</div>
+            <div class="stat-value" style="font-size:1.2em;">${mostCommonEntry[0]}</div>
+            <div class="helper-text">${mostCommonEntry[1]} occurrences</div>
+        </div>
+    `;
+
+    statsGrid.innerHTML = html;
+}
+
+/* CORRELATIONS:
+   Behavior:
+     - If searching specific columns (selectedColumns length < headers.length):
+         => For every OTHER column (headers minus selectedColumns), list ALL values that appear in filtered rows (do not exclude values that contain search terms).
+     - If searching ALL columns:
+         => Legacy behavior: for each column, list values that appear with the search term but exclude values that themselves include the search term(s) (keeps correlations focused).
+*/
+function findCorrelations(selectedColumns) {
+    const correlationList = document.getElementById('correlationList');
+    const correlations = {};
+
+    const searchingAll = (selectedColumns.length === headers.length);
+
+    if (filteredData.length === 0) {
+        correlationList.innerHTML = '<li class="correlation-item">No significant correlations found</li>';
+        return;
+    }
+
+    // For each column we may want to collect co-occurring values
+    headers.forEach(header => {
+        // decide whether to include this column in correlations
+        // - if searching specific columns: include only columns NOT in selectedColumns
+        // - if searching all columns: include all headers (legacy), but exclude values matching search terms
+        if (!searchingAll && selectedColumns.includes(header)) {
+            // skip columns that were selected for searching (Option A)
+            return;
+        }
+
+        // Count values for this header across filtered rows
+        const counts = {};
+        filteredData.forEach(row => {
+            const v = row[header];
+            if (v === null || v === undefined || String(v).trim() === '') return;
+
+            const sval = String(v);
+            const lower = sval.toLowerCase();
+
+            if (searchingAll) {
+                // legacy behavior: skip values that match the search terms (to avoid echoing the searched value)
+                const containsSearchTerm = currentSearchTerms.some(t => lower.includes(t));
+                if (containsSearchTerm) return;
+            }
+            counts[sval] = (counts[sval] || 0) + 1;
+        });
+
+        if (Object.keys(counts).length > 0) {
+            // sort by frequency desc
+            correlations[header] = Object.entries(counts).sort((a,b) => b[1] - a[1]);
+        }
+    });
+
+    // Build HTML display: for each correlated column, show either top N and allow "Show All"
+    if (Object.keys(correlations).length === 0) {
+        correlationList.innerHTML = '<li class="correlation-item">No significant correlations found</li>';
+        return;
+    }
+
+    let idx = 0;
+    let html = '';
+    for (const [col, values] of Object.entries(correlations)) {
+        const top = values.slice(0, 10); // show top 10 by default
+        const hasMore = values.length > 10;
+        html += `<li class="correlation-item"><div class="correlation-header">${col}</div><div class="correlation-values">`;
+        html += top.map(([val, count]) => `<strong>${val}</strong>: ${count} times (${((count/filteredData.length)*100).toFixed(1)}%)`).join(' | ');
+        html += `</div>`;
+        if (hasMore) {
+            html += `<button class="show-all-btn" onclick="toggleAllValues(${idx})">Show All (${values.length})</button>`;
+            html += `<div class="all-values" id="all-values-${idx}">`;
+            html += values.map(([val,count]) => `<div class="value-item"><strong>${val}</strong>: ${count} times (${((count/filteredData.length)*100).toFixed(1)}%)</div>`).join('');
+            html += `</div>`;
+        }
+        html += `</li>`;
+        idx++;
+    }
+
+    correlationList.innerHTML = html;
+}
+
+/* Toggle for "Show All" in correlations */
+function toggleAllValues(index) {
+    const allValuesDiv = document.getElementById(`all-values-${index}`);
+    const btn = event.target;
+    if (!allValuesDiv) return;
+    if (allValuesDiv.classList.contains('visible')) {
+        allValuesDiv.classList.remove('visible');
+        btn.textContent = `Show All (${allValuesDiv.querySelectorAll('.value-item').length})`;
+    } else {
+        allValuesDiv.classList.add('visible');
+        btn.textContent = 'Show Less';
+    }
+}
+
+/* VISUALIZATIONS:
+   - Distribution chart: when searching specific columns, show counts for those columns only; when searching all, show across all headers (legacy).
+   - Correlation chart: uses the "byCol" mapping similar to prior behavior, but respects selectedColumns logic:
+       - if specific columns chosen: co-occurring values come from headers NOT in selectedColumns (and include all values)
+       - if all columns: same older behavior (exclude values containing search terms)
+*/
+function createVisualizations(selectedColumns) {
+    // Distribution counts by column (only columns considered)
+    const distCounts = {};
+    const distributionColumns = (selectedColumns.length === headers.length) ? headers.slice() : selectedColumns.slice();
+
+    distributionColumns.forEach(col => {
+        distCounts[col] = filteredData.filter(r => {
+            const v = r[col];
+            if (v === null || v === undefined) return false;
+            return currentSearchTerms.some(t => String(v).toLowerCase().includes(t));
+        }).length;
+    });
+
+    // distribution chart (bar)
+    const distCtx = document.getElementById('distributionChart');
+    if (window.distributionChartInstance) window.distributionChartInstance.destroy();
+    window.distributionChartInstance = new Chart(distCtx, {
+        type: 'bar',
+        data: {
+            labels: Object.keys(distCounts),
+            datasets: [{
+                label: 'Occurrences by Column',
+                data: Object.values(distCounts),
+                backgroundColor: 'rgba(52,152,219,0.7)',
+                borderColor: 'rgba(52,152,219,1)',
+                borderWidth: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: {
+                tooltip: {
+                    callbacks: {
+                        label: context => {
+                            const y = context.parsed.y;
+                            return y + ' occurrences (' + ((y / (filteredData.length || 1)) * 100).toFixed(1) + '%)';
+                        }
+                    }
+                },
+                legend: { display: true }
+            },
+            scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
+        }
+    });
+
+    // Correlation chart: build valuesByColumn according to selectedColumns logic
+    const valuesByColumn = {};
+    const searchingAll = (selectedColumns.length === headers.length);
+
+    headers.forEach(header => {
+        // if searching specific columns, we only want co-occurring values from columns not in selectedColumns
+        if (!searchingAll && selectedColumns.includes(header)) return;
+
+        filteredData.forEach(row => {
+            const value = row[header];
+            if (value === null || value === undefined || String(value).trim() === '') return;
+            const sval = String(value);
+
+            if (searchingAll) {
+                // ignore values that themselves include search term(s) to keep chart focused (legacy behavior)
+                const lower = sval.toLowerCase();
+                if (currentSearchTerms.some(t => lower.includes(t))) return;
+            }
+
+            if (!valuesByColumn[sval]) valuesByColumn[sval] = {};
+            valuesByColumn[sval][header] = (valuesByColumn[sval][header] || 0) + 1;
+        });
+    });
+
+    // compute totals and top values
+    const valueTotals = {};
+    Object.entries(valuesByColumn).forEach(([val, cols]) => {
+        valueTotals[val] = Object.values(cols).reduce((a,b) => a + b, 0);
+    });
+
+    const topValues = Object.entries(valueTotals).sort((a,b) => b[1] - a[1]).slice(0, 10);
+
+    const corrCtx = document.getElementById('correlationChart');
+    if (window.correlationChartInstance) window.correlationChartInstance.destroy();
+    window.correlationChartInstance = new Chart(corrCtx, {
+        type: 'bar',
+        data: {
+            labels: topValues.map(v => v[0].length > 30 ? v[0].substring(0,27) + '...' : v[0]),
+            datasets: [{
+                label: 'Co-occurrence Count',
+                data: topValues.map(v => v[1]),
+                backgroundColor: 'rgba(46,204,113,0.7)',
+                borderColor: 'rgba(46,204,113,1)',
+                borderWidth: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            indexAxis: 'y',
+            plugins: {
+                tooltip: {
+                    callbacks: {
+                        title: ctx => topValues[ctx[0].dataIndex][0],
+                        label: ctx => {
+                            const value = topValues[ctx.dataIndex][0];
+                            const cols = valuesByColumn[value] || {};
+                            let tooltip = 'Total: ' + ctx.parsed.x + ' times\nBreakdown by column:\n';
+                            Object.entries(cols).sort((a,b) => b[1] - a[1]).forEach(([col, count]) => {
+                                tooltip += '  • ' + col + ': ' + count + ' times\n';
+                            });
+                            return tooltip.split('\n');
+                        }
+                    }
+                },
+                legend: { display: true }
+            },
+            scales: { x: { beginAtZero: true, ticks: { stepSize: 1 } } }
+        }
+    });
+}
+
+/* Download filtered CSV */
+function downloadFiltered() {
+    if (!filteredData.length) {
+        alert('No data to download');
+        return;
+    }
+    const csv = Papa.unparse(filteredData, { header:true, columns: headers });
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `filtered_${currentSearchTerms.join('_')}_${Date.now()}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+
+/* Clear search and UI highlights */
+function clearSearch() {
+    document.getElementById('searchInput').value = '';
+    document.getElementById('resultsSection').classList.add('hidden');
+
+    originalData.forEach((row, idx) => {
+        const rowEl = document.getElementById(`row-${idx}`);
+        if (rowEl) rowEl.classList.remove('highlight-row');
+    });
+
+    currentSearchTerms = [];
+    filteredData = [];
+
+    // destroy charts if present
+    if (window.distributionChartInstance) window.distributionChartInstance.destroy();
+    if (window.correlationChartInstance) window.correlationChartInstance.destroy();
+}
+</script>
+</body>
+</html>

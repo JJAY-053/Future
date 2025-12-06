@@ -1,0 +1,571 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Team Member ID Analyzer (Client-side)</title>
+  <style>
+    /* --- layout & base (unchanged except where required) --- */
+    body{font-family:Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; margin:0; padding:20px; background:#f5f7fb}
+    .container{max-width:1100px;margin:0 auto;background:white;padding:20px;border-radius:10px;box-shadow:0 6px 20px rgba(20,20,40,0.08)}
+    h1{margin:0 0 12px;font-size:20px}
+    .row{display:flex;gap:12px;align-items:center;margin-bottom:12px;flex-wrap:wrap}
+    select,input,button,textarea{padding:8px;border-radius:6px;border:1px solid #d1d7e0;background:#fff}
+    button{cursor:pointer}
+    table{border-collapse:collapse;width:100%;margin-top:12px}
+    th,td{border:1px solid #e6ebf2;padding:6px;text-align:left;font-size:13px}
+    .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+    .controls{background:#fbfcff;padding:12px;border-radius:8px}
+    .small{font-size:13px;color:#5b6b82}
+    .pill{display:inline-block;padding:6px 10px;border-radius:999px;background:#eef3ff;color:#0b3bff;margin-right:6px;margin-bottom:6px}
+    .mono{font-family:monospace}
+    pre{background:#0f1724;color:#cbd5e1;padding:12px;border-radius:8px;overflow:auto}
+
+    /* --- updated: locked table containers + inner scrolling (reduced size) --- */
+    /* reduced max-height to make tables compact and scrollable inside */
+    .table-window{background:#fff;padding:6px;border-radius:6px;border:1px solid #eef2fb;max-height:220px;overflow:auto}
+    /* ensure tables don't stretch the whole page horizontally */
+    .table-window table{min-width:700px;border-collapse:collapse}
+
+    /* make matrix area slightly larger but locked and scrollable both axes */
+    #matrixArea{overflow:auto;max-height:480px;border:1px solid #eef2fb;padding:6px;border-radius:6px;background:#fff}
+    #matrixArea table{min-width:700px}
+
+    /* --- tooltip styles --- */
+    #tooltip{position:fixed;pointer-events:none;background:rgba(10,10,20,0.92);color:#fff;padding:8px 10px;border-radius:6px;font-size:13px;max-width:300px;z-index:9999;display:none;box-shadow:0 6px 20px rgba(0,0,0,0.3)}
+
+    /* small helper for labels we won't change elsewhere */
+    .help{display:inline-block;margin-left:6px;color:#7a8796;font-size:12px}
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+</head>
+<body>
+  <div class="container">
+    <h1>Team Member ID Analyzer — Client-side CSV tool</h1>
+    <p class="small">Upload a CSV, pick the column that contains grouped IDs (like <code class="mono">TGF-0312 TGF-0144</code>) and the tool will split/explode, summarize frequency, show co-occurrence and let you download cleaned files. Everything runs in your browser — no server.</p>
+
+    <div class="controls">
+      <div class="row">
+        <label style="font-weight:600">CSV file</label>
+        <input id="csvFile" type="file" accept="text/csv" />
+        <button id="loadSample">Load sample (from uploaded file)</button>
+      </div>
+
+      <div class="row">
+        <label style="font-weight:600">Column to analyze</label>
+        <select id="columnSelect"><option value="">(load CSV first)</option></select>
+
+        <label style="font-weight:600">Pattern (regex)</label>
+        <input id="regexInput" value="TGF-\d{4}" style="min-width:200px" />
+
+        <label style="font-weight:600">Fallback delimiter</label>
+        <select id="delimSelect">
+          <option value="auto">Auto (space/comma/semicolon)</option>
+          <option value=" ">Space</option>
+          <option value=",">Comma</option>
+          <option value=";">Semicolon</option>
+          <option value="|">Pipe (|)</option>
+        </select>
+
+        <button id="analyzeBtn">Analyze</button>
+      </div>
+
+      <div class="row">
+        <label class="small">Options:</label>
+        <label><input type="checkbox" id="caseSensitive" /> Case sensitive</label>
+        <label><input type="checkbox" id="useMatchesOnly" checked /> Use regex matches only (if none found, fallback to delimiter)</label>
+      </div>
+    </div>
+
+    <div id="results" style="margin-top:18px;display:none">
+      <div class="row">
+        <button id="downloadClean">Download cleaned (wide) CSV</button>
+        <button id="downloadLong">Download exploded (long-format) CSV</button>
+        <button id="downloadFreq">Download frequency CSV</button>
+        <button id="downloadMatrix">Download co-occurrence CSV</button>
+        <button id="downloadUnique">Download unique TeamMemberIDs</button>
+        <button id="copyJSON">Copy results JSON</button>
+      </div>
+
+      <div class="grid">
+        <div>
+          <h3>Exploded (long) table</h3>
+          <div id="longArea" class="table-window"></div>
+        </div>
+
+        <div>
+          <h3>Cleaned (wide) table</h3>
+          <div id="cleanArea" class="table-window"></div>
+        </div>
+      </div>
+
+      <div style="margin-top:12px">
+        <h3>Frequency summary</h3>
+        <div id="freqArea"></div>
+        <!-- canvases for charts -->
+        <div style="display:flex;gap:12px;align-items:flex-start;margin-top:8px;flex-wrap:wrap">
+          <div>
+            <div class="small">Top frequency (bar chart)</div>
+            <canvas id="freqChart" width="720" height="220" style="border:1px solid #eef2fb;border-radius:6px;background:#fff"></canvas>
+          </div>
+          <div>
+            <div class="small">IDs per row (histogram)</div>
+            <canvas id="histChart" width="360" height="220" style="border:1px solid #eef2fb;border-radius:6px;background:#fff"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-top:12px">
+        <h3>Per-row stats</h3>
+        <div id="statsArea"></div>
+      </div>
+
+      <div style="margin-top:12px">
+        <h3>Co-occurrence matrix</h3>
+        <div id="matrixArea"></div>
+      </div>
+
+    </div>
+
+    <hr style="margin-top:20px;margin-bottom:12px" />
+    <div class="small">Notes: Regex will be applied to each cell of the selected column. If <em>Use regex matches only</em> is checked, the tool first tries to extract matches with that regex. If none are found in a cell and fallback is allowed, the cell will be split with the fallback delimiter. The tool auto-detects maximum number of members and creates TeamMember_1..N columns in the cleaned CSV.</div>
+  </div>
+
+<!-- tooltip element -->
+<div id="tooltip"></div>
+
+<script>
+let rawData = null;
+let headers = [];
+let parsedRows = [];
+
+const csvFile = document.getElementById('csvFile');
+const columnSelect = document.getElementById('columnSelect');
+const regexInput = document.getElementById('regexInput');
+const delimSelect = document.getElementById('delimSelect');
+const analyzeBtn = document.getElementById('analyzeBtn');
+const resultsDiv = document.getElementById('results');
+const longArea = document.getElementById('longArea');
+const cleanArea = document.getElementById('cleanArea');
+const freqArea = document.getElementById('freqArea');
+const statsArea = document.getElementById('statsArea');
+const matrixArea = document.getElementById('matrixArea');
+const downloadClean = document.getElementById('downloadClean');
+const downloadLong = document.getElementById('downloadLong');
+const downloadFreq = document.getElementById('downloadFreq');
+const downloadMatrix = document.getElementById('downloadMatrix');
+const downloadUnique = document.getElementById('downloadUnique');
+const copyJSON = document.getElementById('copyJSON');
+const caseSensitive = document.getElementById('caseSensitive');
+const useMatchesOnly = document.getElementById('useMatchesOnly');
+
+// Tooltip map: selector -> text
+const TOOLTIP_MAP = new Map([
+  ['#csvFile','Choose a CSV file from your computer. The tool parses it in-browser (no server).'],
+  ['#loadSample','Reminder button: select a CSV using the file chooser above.'],
+  ['#columnSelect','Select the column that contains grouped IDs (one cell may contain many IDs).'],
+  ['#regexInput','Regex used to extract IDs. Example: TGF-\\d{4} extracts IDs like TGF-0312.'],
+  ['#delimSelect','Fallback delimiter used when regex finds nothing. "Auto" splits on spaces, commas, semicolons and pipes.'],
+  ['#analyzeBtn','Run analysis: explode IDs, compute frequency and co-occurrence.'],
+  ['#caseSensitive','If checked, the regex is case-sensitive.'],
+  ['#useMatchesOnly','If checked, the tool prefers regex matches and will only split by delimiter when no matches are found (per-cell).'],
+  ['#downloadClean','Download the cleaned wide-format CSV (TeamMember_1..N columns).'],
+  ['#downloadLong','Download the exploded long-format CSV (one row per ID).'],
+  ['#downloadFreq','Download a CSV of frequencies for each ID.'],
+  ['#downloadMatrix','Download the co-occurrence matrix as CSV.'],
+  ['#downloadUnique','Download a CSV containing one row per unique TeamMemberID extracted (duplicates removed).'],
+  ['#copyJSON','Copy the full analysis JSON to clipboard for debugging or saving.'],
+  ['#longArea','Exploded (long) rows are shown here. This panel is intentionally compact and scrollable to save space. Use horizontal scroll to view wide tables.'],
+  ['#cleanArea','Cleaned (wide) table with TeamMember_1..N columns. The panel is compact and scrollable both axes.'],
+  ['#freqArea','Frequency table of IDs. A bar chart and histogram are shown beside this table.'],
+  ['#statsArea','Per-row statistics: avg/min/max and distribution (IDs per row).'],
+  ['#matrixArea','Co-occurrence matrix. Scroll horizontally/vertically to see all IDs.']
+]);
+
+// tooltip DOM
+const tooltip = document.getElementById('tooltip');
+
+function attachTooltips(){
+  TOOLTIP_MAP.forEach((text, selector)=>{
+    const el = document.querySelector(selector);
+    if(!el) return;
+    el.addEventListener('mouseenter', (e)=> showTooltip(text, e));
+    el.addEventListener('mousemove', (e)=> moveTooltip(e));
+    el.addEventListener('mouseleave', ()=> hideTooltip());
+  });
+}
+function showTooltip(text, event){ tooltip.style.display='block'; tooltip.textContent = text; moveTooltip(event); }
+function moveTooltip(event){
+  const pad = 12;
+  let x = event.clientX + pad;
+  let y = event.clientY + pad;
+  const w = tooltip.offsetWidth; const h = tooltip.offsetHeight;
+  if(window.innerWidth - x < w + 20) x = event.clientX - w - pad;
+  if(window.innerHeight - y < h + 20) y = event.clientY - h - pad;
+  tooltip.style.left = x + 'px'; tooltip.style.top = y + 'px';
+}
+function hideTooltip(){ tooltip.style.display='none'; }
+
+// attach after DOM loaded
+window.addEventListener('load', attachTooltips);
+
+csvFile.addEventListener('change', e => {
+  const file = e.target.files[0];
+  if(!file) return;
+  Papa.parse(file, {header:true, skipEmptyLines:true, complete: function(res){
+    rawData = res.data;
+    headers = res.meta.fields || Object.keys(rawData[0]||{});
+    populateColumns(headers);
+    alert('CSV loaded: ' + rawData.length + ' rows. Select the column to analyze.');
+  }});
+});
+
+function populateColumns(cols){
+  columnSelect.innerHTML = '';
+  const opt = document.createElement('option');
+  opt.value = '';
+  opt.textContent = '(choose column)';
+  columnSelect.appendChild(opt);
+  cols.forEach(c=>{
+    const o = document.createElement('option'); o.value=c; o.textContent=c; columnSelect.appendChild(o);
+  });
+}
+
+analyzeBtn.addEventListener('click', () => {
+  if(!rawData){ alert('Please load a CSV file first.'); return; }
+  const col = columnSelect.value;
+  if(!col){ alert('Please pick the column that contains the grouped IDs.'); return; }
+  runAnalysis(rawData, col);
+});
+
+function runAnalysis(rows, columnName){
+  const patternStr = regexInput.value || 'TGF-\\d{4}';
+  let flags = 'g'; if(!caseSensitive.checked) flags += 'i';
+  let regex;
+  try{ regex = new RegExp(patternStr, flags); } catch(e){ alert('Invalid regex: '+e.message); return; }
+
+  const fallback = delimSelect.value;
+  const useMatches = useMatchesOnly.checked;
+
+  // results
+  const longRows = []; // {rowIndex, originalRow, TeamMemberID}
+  const cleanedRows = []; // original with TeamMember_1..N
+  const freq = new Map();
+  const perRowCounts = [];
+
+  let maxMembers = 0;
+
+  rows.forEach((r, idx) => {
+    const rawCell = (r[columnName] == null) ? '' : String(r[columnName]);
+    // find matches
+    const matches = Array.from(rawCell.matchAll(regex)).map(m=>m[0]);
+    let members = [];
+    if(matches.length>0){ members = matches; }
+    if(matches.length===0 && !useMatches){
+      // fallback split
+      if(fallback==='auto'){
+        // split by space, comma, semicolon
+        members = rawCell.split(/[ ,;|]+/).map(s=>s.trim()).filter(Boolean);
+      } else {
+        members = rawCell.split(fallback).map(s=>s.trim()).filter(Boolean);
+      }
+    }
+    // ensure members normalized
+    members = members.map(s=>s);
+    // update freq & longRows
+    members.forEach(id=>{
+      longRows.push({rowIndex: idx, ...r, TeamMemberID: id});
+      freq.set(id, (freq.get(id)||0)+1);
+    });
+    perRowCounts.push(members.length);
+    if(members.length>maxMembers) maxMembers = members.length;
+    // prepare cleaned wide row (we'll rebuild later to ensure consistent columns)
+    const cleaned = {...r};
+    for(let i=0;i<maxMembers;i++){
+      cleaned['TeamMember_'+(i+1)] = members[i] || '';
+    }
+    cleanedRows.push(cleaned);
+  });
+
+  // Because maxMembers might have increased after later rows, rebuild cleaned wide table consistently
+  const wideRows = rows.map((r, idx)=>{
+    const rawCell = (r[columnName] == null) ? '' : String(r[columnName]);
+    const matches = Array.from(rawCell.matchAll(regex)).map(m=>m[0]);
+    let members = [];
+    if(matches.length>0){ members = matches; }
+    if(matches.length===0 && !useMatches){
+      if(fallback==='auto') members = rawCell.split(/[ ,;|]+/).map(s=>s.trim()).filter(Boolean);
+      else members = rawCell.split(fallback).map(s=>s.trim()).filter(Boolean);
+    }
+    const out = {...r};
+    for(let i=0;i<maxMembers;i++) out['TeamMember_'+(i+1)] = members[i] || '';
+    return out;
+  });
+
+  // compute co-occurrence
+  const idList = Array.from(freq.keys()).sort();
+  const idIndex = Object.fromEntries(idList.map((id,i)=>[id,i]));
+  const matrix = Array.from({length:idList.length}, ()=>Array(idList.length).fill(0));
+  // for each row, find members and increment pairs
+  rows.forEach(r=>{
+    const rawCell = (r[columnName] == null) ? '' : String(r[columnName]);
+    const matches = Array.from(rawCell.matchAll(regex)).map(m=>m[0]);
+    let members = [];
+    if(matches.length>0){ members = matches; }
+    if(matches.length===0 && !useMatches){
+      if(fallback==='auto') members = rawCell.split(/[ ,;|]+/).map(s=>s.trim()).filter(Boolean);
+      else members = rawCell.split(fallback).map(s=>s.trim()).filter(Boolean);
+    }
+    // unique within row
+    const uniq = Array.from(new Set(members));
+    for(let i=0;i<uniq.length;i++){
+      for(let j=i;j<uniq.length;j++){
+        const a = uniq[i]; const b = uniq[j];
+        const ai = idIndex[a]; const bi = idIndex[b];
+        if(ai==null||bi==null) continue;
+        matrix[ai][bi] += 1;
+        if(ai!==bi) matrix[bi][ai] += 1;
+      }
+    }
+  });
+
+  // render long table (limit rows shown)
+  renderLong(longRows.slice(0,1000));
+  renderWide(wideRows.slice(0,500));
+  renderFreq(freq);
+  renderStats(perRowCounts);
+  renderMatrix(idList, matrix);
+
+  // draw charts
+  try{ drawCharts({freq: Object.fromEntries(freq), perRowCounts}); }catch(e){console.warn('Chart draw failed', e)}
+
+  // store for download
+  window.__analysis = {longRows, wideRows, freq: Object.fromEntries(freq), perRowCounts, idList, matrix, originalHeaders: headers};
+  resultsDiv.style.display = 'block';
+}
+
+function renderLong(rows){
+  if(rows.length===0){ longArea.innerHTML = '<div class="small">No exploded rows found.</div>'; return; }
+  const cols = Object.keys(rows[0]);
+  let html = '<table><thead><tr>' + cols.map(c=>`<th>${escapeHtml(c)}</th>`).join('') + '</tr></thead><tbody>';
+  rows.forEach(r=>{
+    html += '<tr>' + cols.map(c=>`<td>${escapeHtml(String(r[c]||''))}</td>`).join('') + '</tr>';
+  });
+  html += '</tbody></table>';
+  longArea.innerHTML = html + (rows.length>=1000?'<div class="small">Showing first 1000 exploded rows.</div>':'');
+}
+
+function renderWide(rows){
+  if(rows.length===0){ cleanArea.innerHTML = '<div class="small">No cleaned rows.</div>'; return; }
+  const cols = Object.keys(rows[0]);
+  let html = '<table><thead><tr>' + cols.map(c=>`<th>${escapeHtml(c)}</th>`).join('') + '</tr></thead><tbody>';
+  rows.forEach(r=>{
+    html += '<tr>' + cols.map(c=>`<td>${escapeHtml(String(r[c]||''))}</td>`).join('') + '</tr>';
+  });
+  html += '</tbody></table>';
+  cleanArea.innerHTML = html + (rows.length>=500?'<div class="small">Showing first 500 cleaned rows.</div>':'');
+}
+
+function renderFreq(freqMap){
+  const entries = Array.from(freqMap.entries()).sort((a,b)=>b[1]-a[1]);
+  if(entries.length===0){ freqArea.innerHTML = '<div class="small">No IDs found.</div>'; return; }
+  let html = '<table><thead><tr><th>TeamMemberID</th><th>Count</th></tr></thead><tbody>';
+  entries.forEach(([id,c])=> html += `<tr><td>${escapeHtml(id)}</td><td>${c}</td></tr>`);
+  html += '</tbody></table>';
+  freqArea.innerHTML = html;
+}
+
+function renderStats(counts){
+  if(counts.length===0){ statsArea.innerHTML = '<div class="small">No rows analysed.</div>'; return; }
+  const n = counts.length;
+  const total = counts.reduce((s,x)=>s+x,0);
+  const avg = total / n;
+  const min = Math.min(...counts);
+  const max = Math.max(...counts);
+  const distribution = {}; counts.forEach(c=> distribution[c] = (distribution[c]||0)+1);
+  let html = `<div class="small">Rows: <strong>${n}</strong> — total IDs: <strong>${total}</strong> — avg per row: <strong>${avg.toFixed(2)}</strong> — min: <strong>${min}</strong> — max: <strong>${max}</strong></div>`;
+  html += '<div style="margin-top:8px"><strong>Distribution (IDs per row)</strong></div>';
+  html += '<table><thead><tr><th>IDs in row</th><th>Row count</th></tr></thead><tbody>';
+  Object.keys(distribution).sort((a,b)=>a-b).forEach(k=> html += `<tr><td>${k}</td><td>${distribution[k]}</td></tr>`);
+  html += '</tbody></table>';
+  statsArea.innerHTML = html;
+}
+
+function renderMatrix(idList, matrix){
+  if(idList.length===0){ matrixArea.innerHTML = '<div class="small">No co-occurrence data.</div>'; return; }
+  let html = '<table><thead><tr><th></th>' + idList.map(id=>`<th>${escapeHtml(id)}</th>`).join('') + '</tr></thead><tbody>';
+  for(let i=0;i<idList.length;i++){
+    html += '<tr><th>'+escapeHtml(idList[i])+'</th>' + matrix[i].map(v=>`<td>${v}</td>`).join('') + '</tr>';
+  }
+  html += '</tbody></table>';
+  matrixArea.innerHTML = html;
+}
+
+function escapeHtml(s){ return s.replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;'); }
+
+// downloads
+function convertToCSV(rows){
+  if(!rows || rows.length===0) return '';
+  const cols = Object.keys(rows[0]);
+  const lines = [cols.map(c=>`"${c.replaceAll('"','""')}"`).join(',')];
+  rows.forEach(r=>{
+    lines.push(cols.map(c=>`"${String(r[c]||'').replaceAll('"','""') }"`).join(','));
+  });
+  return lines.join('\n');
+}
+
+downloadLong.addEventListener('click', ()=>{
+  const obj = window.__analysis?.longRows || [];
+  const csv = convertToCSV(obj);
+  triggerDownload(csv, 'exploded_long.csv');
+});
+
+downloadClean.addEventListener('click', ()=>{
+  const obj = window.__analysis?.wideRows || [];
+  const csv = convertToCSV(obj);
+  triggerDownload(csv, 'cleaned_wide.csv');
+});
+
+downloadFreq.addEventListener('click', ()=>{
+  const freq = window.__analysis?.freq || {};
+  const rows = Object.keys(freq).map(k=>({TeamMemberID:k, Count:freq[k]}));
+  rows.sort((a,b)=>b.Count-a.Count);
+  triggerDownload(convertToCSV(rows), 'frequency.csv');
+});
+
+downloadMatrix.addEventListener('click', ()=>{
+  const analysis = window.__analysis; if(!analysis){ alert('Run analysis first'); return; }
+  const idList = analysis.idList; const matrix = analysis.matrix;
+  if(!idList || idList.length===0){ alert('No matrix'); return; }
+  const cols = ['id'].concat(idList);
+  let lines = [cols.join(',')];
+  for(let i=0;i<idList.length;i++){
+    const row = [escapeForCSV(idList[i])].concat(matrix[i].map(v=>String(v))).join(',');
+    lines.push(row);
+  }
+  triggerDownload(lines.join('\n'), 'cooccurrence.csv');
+});
+
+// NEW: download unique TeamMemberIDs (one value per ID)
+downloadUnique.addEventListener('click', ()=>{
+  const analysis = window.__analysis; if(!analysis){ alert('Run analysis first'); return; }
+  const idList = analysis.idList || [];
+  if(idList.length===0){ alert('No IDs found'); return; }
+  // produce single-column CSV
+  const lines = ['TeamMemberID'].concat(idList.map(id=>escapeForCSV(id)));
+  triggerDownload(lines.join('\n'), 'unique_team_member_ids.csv');
+});
+
+copyJSON.addEventListener('click', ()=>{
+  const obj = window.__analysis || {};
+  navigator.clipboard.writeText(JSON.stringify(obj)).then(()=>alert('Results copied to clipboard (JSON)').catch(()=>alert('Copy failed')));
+});
+
+function triggerDownload(text, filename){
+  const blob = new Blob([text], {type:'text/csv;charset=utf-8;'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+}
+
+function escapeForCSV(s){ return '"'+String(s).replaceAll('"','""')+'"'; }
+
+// load sample — simply trigger file input guide
+document.getElementById('loadSample').addEventListener('click', ()=>{
+  alert('Please select your CSV file using the file chooser. This button just reminds you the tool is client-side.');
+});
+
+// quick auto-detect: if the loaded CSV has a column named TeamMemberIDs, preselect it
+(function autoPreselect(){
+  const observer = new MutationObserver(()=>{
+    if(window.__preselected) return;
+    const opt = Array.from(columnSelect.options).find(o=>o.value==='TeamMemberIDs');
+    if(opt){ columnSelect.value='TeamMemberIDs'; window.__preselected=true; }
+  });
+  observer.observe(columnSelect, {childList:true});
+})();
+
+/* ---------------------- Charts: pure JS + canvas ---------------------- */
+function drawCharts(analysis){
+  // freq bar chart: top 12
+  const freq = analysis.freq || {};
+  const pairs = Object.entries(freq).sort((a,b)=>b[1]-a[1]).slice(0,12);
+  const labels = pairs.map(p=>p[0]);
+  const values = pairs.map(p=>p[1]);
+  drawBarChart(document.getElementById('freqChart'), labels, values);
+
+  // histogram of perRowCounts
+  const counts = analysis.perRowCounts || [];
+  drawHistogram(document.getElementById('histChart'), counts);
+}
+
+function drawBarChart(canvas, labels, values){
+  if(!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width; const h = canvas.height;
+  ctx.clearRect(0,0,w,h);
+  if(values.length===0){ ctx.fillText('No data', 10,20); return; }
+  const padding = {l:50, r:20, t:20, b:30};
+  const chartW = w - padding.l - padding.r; const chartH = h - padding.t - padding.b;
+  const maxVal = Math.max(...values);
+  const barW = chartW / values.length * 0.8;
+  labels.forEach((label,i)=>{
+    const x = padding.l + i*(chartW/values.length) + (chartW/values.length - barW)/2;
+    const barH = (values[i]/maxVal) * chartH;
+    const y = padding.t + (chartH - barH);
+    // bar
+    ctx.fillStyle = '#0b3bff';
+    ctx.fillRect(x, y, barW, barH);
+    // value label
+    ctx.fillStyle = '#111827';
+    ctx.font = '12px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(values[i], x+barW/2, y-6);
+    // x label (rotated if too long)
+    ctx.save();
+    ctx.translate(x+barW/2, h - padding.b + 10);
+    ctx.rotate(-Math.PI/4);
+    ctx.textAlign = 'right';
+    ctx.fillText(label, 0,0);
+    ctx.restore();
+  });
+  // y axis ticks
+  ctx.strokeStyle='#e6ebf2'; ctx.beginPath();
+  for(let t=0;t<=5;t++){
+    const yy = padding.t + t*(chartH/5);
+    ctx.moveTo(padding.l, yy);
+    ctx.moveTo(padding.l, yy);
+    ctx.lineTo(w-padding.r, yy);
+    const val = Math.round(maxVal*(1 - t/5));
+    ctx.fillStyle='#6b7280'; ctx.textAlign='right'; ctx.fillText(val, padding.l-8, yy+4);
+  }
+  ctx.stroke();
+}
+
+function drawHistogram(canvas, values){
+  if(!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width; const h = canvas.height;
+  ctx.clearRect(0,0,w,h);
+  if(!values || values.length===0){ ctx.fillText('No data', 10,20); return; }
+  const padding = {l:30, r:10, t:20, b:30};
+  const chartW = w - padding.l - padding.r; const chartH = h - padding.t - padding.b;
+  const maxVal = Math.max(...values);
+  const bins = Math.min(8, maxVal+1);
+  const counts = new Array(bins).fill(0);
+  values.forEach(v=>{ const b = Math.min(bins-1, v); counts[b]++; });
+  const maxCount = Math.max(...counts);
+  const binW = chartW / bins * 0.8;
+  counts.forEach((c,i)=>{
+    const x = padding.l + i*(chartW/bins) + (chartW/bins - binW)/2;
+    const barH = (c / maxCount) * chartH;
+    const y = padding.t + (chartH - barH);
+    ctx.fillStyle = '#0b3bff';
+    ctx.fillRect(x, y, binW, barH);
+    ctx.fillStyle = '#111827'; ctx.font='12px sans-serif'; ctx.textAlign='center'; ctx.fillText(c, x+binW/2, y-6);
+    ctx.save(); ctx.translate(x+binW/2, h - padding.b + 10); ctx.rotate(-Math.PI/8); ctx.fillText(String(i), 0,0); ctx.restore();
+  });
+}
+
+</script>
+</body>
+</html>

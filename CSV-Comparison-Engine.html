@@ -1,0 +1,1541 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>CSV Analysis & Comparison Tool — Improved UI/UX</title>
+
+    <!-- Libraries (unchanged) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+
+    <style>
+        /* Reset & base */
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        :root{
+            --bg: #f5f3ef;
+            --panel: #ffffff;
+            --muted: #7f8c8d;
+            --accent: #253547;
+            --accent-2: #2f4957;
+            --success: #1db954;
+            --warning: #ffb020;
+            --danger: #e0245e;
+            --info: #3b82f6;
+            --card-shadow: 0 6px 24px rgba(16,24,40,0.08);
+            --radius: 10px;
+        }
+        body{
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial;
+            background: linear-gradient(135deg, var(--bg) 0%, #e8e4dc 100%);
+            color: #222;
+            padding: 24px;
+        }
+
+        /* Container */
+        .container{
+            max-width: 1300px;
+            margin: 0 auto;
+            background: var(--panel);
+            border-radius: 14px;
+            padding: 26px;
+            box-shadow: var(--card-shadow);
+            overflow: hidden;
+        }
+
+        header {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 18px;
+        }
+
+        header .title {
+            display:flex;
+            gap:14px;
+            align-items:center;
+        }
+
+        h1 {
+            font-size: 20px;
+            color: #24303a;
+            letter-spacing: -0.2px;
+        }
+        .subtitle {
+            color: var(--muted);
+            font-size: 13px;
+        }
+
+        /* Upload area */
+        .upload-section{
+            background: #fbfbfa;
+            border: 1px solid #e6e2d9;
+            padding: 18px;
+            border-radius: 10px;
+            margin-bottom: 18px;
+        }
+
+        .upload-grid {
+            display: grid;
+            grid-template-columns: 1fr 320px;
+            gap: 16px;
+            align-items: start;
+        }
+
+        .upload-left {
+            display: grid;
+            gap: 12px;
+        }
+
+        .file-input-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px,1fr));
+            gap: 10px;
+        }
+
+        .upload-box {
+            background: var(--panel);
+            border: 1px dashed #e6e2d9;
+            padding: 12px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .upload-label {
+            display:inline-block;
+            background: var(--accent);
+            color: #fff;
+            padding: 8px 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 13px;
+            width:100%;
+        }
+        .upload-box .file-name{
+            margin-top:10px;
+            color: var(--muted);
+            font-size: 12px;
+            word-break: break-all;
+        }
+
+        .process-btn {
+            margin-top: 12px;
+            width:100%;
+            padding: 12px;
+            border-radius: 8px;
+            background: linear-gradient(180deg, var(--accent) 0%, var(--accent-2) 100%);
+            color: white;
+            font-weight: 600;
+            border: none;
+            cursor: pointer;
+            box-shadow: 0 6px 16px rgba(74,82,88,0.12);
+        }
+
+        .process-btn:hover { transform: translateY(-2px); }
+
+        /* Right panel */
+        .upload-right {
+            padding: 12px;
+            border-radius: 8px;
+            background: linear-gradient(180deg,#fcfcfb,#fbfbfa);
+            border:1px solid #f0ede6;
+        }
+        .upload-right h3 { font-size: 14px; color: #24303a; margin-bottom: 8px; }
+        .upload-right p { font-size: 12px; color: var(--muted); margin-bottom: 10px; }
+
+        /* Controls (comparison settings) */
+        .controls {
+            margin-top: 18px;
+            padding: 14px;
+            background: #fbfbfb;
+            border-radius: 10px;
+            border:1px solid #ece8df;
+            display: none;
+        }
+        .controls.active { display:block; }
+
+        .controls-grid { display: grid; grid-template-columns: 1fr 320px; gap: 14px; align-items:start; }
+
+        .control-group label { display:block; color:#2c3e50; font-weight:600; margin-bottom:6px; font-size:13px; }
+        .control-group select, .control-group input[type="text"] {
+            padding: 10px; font-size:13px; border-radius:8px; border:1px solid #e6e2d9; width:100%;
+            background:white;
+        }
+
+        .checkbox-group{
+            max-height: 180px;
+            overflow-y: auto;
+            background: white;
+            border: 1px solid #e6e2d9;
+            border-radius: 8px;
+            padding: 10px;
+        }
+        .checkbox-item { padding: 8px; display:flex; gap:8px; align-items:center; font-size:13px; color:#333; }
+
+        .action-row { display:flex; gap:12px; margin-top:10px; }
+        .secondary-btn {
+            background:transparent;
+            border:1px solid #d8d4cc;
+            padding:10px 12px;
+            border-radius:8px;
+            cursor:pointer;
+            font-weight:600;
+        }
+        .download-btn { background: #2c3e50; color:white; border:none; padding:10px 12px; border-radius:8px; cursor:pointer; font-weight:600; }
+        .download-btn[disabled] { opacity:0.55; cursor:not-allowed; transform:none; }
+
+        /* Grid for stats */
+        .stats-grid {
+            display:grid;
+            grid-template-columns: repeat(auto-fit,minmax(180px,1fr));
+            gap:14px;
+            margin-top:18px;
+        }
+        .stat-card {
+            padding:14px;
+            border-radius: 10px;
+            background: linear-gradient(180deg,#fcfcfb,#fbfbfb);
+            border:1px solid #eee9df;
+        }
+        .stat-card h3 { font-size:12px; color:#24303a; margin-bottom:6px; text-transform:uppercase; }
+        .stat-value { font-size:22px; font-weight:700; color:var(--accent); }
+        .stat-label { font-size:12px; color:var(--muted); margin-top:6px; }
+
+        /* Tables area */
+        .section-title { font-size:16px; color:#24303a; margin-top: 22px; margin-bottom: 12px; padding-bottom:8px; border-bottom:1px solid #eee9df; }
+        .table-container {
+            margin-bottom: 14px;
+            border-radius: 10px;
+            overflow: hidden;
+            border:1px solid #ece8df;
+        }
+        .table-header {
+            background: #ffffff;
+            color: #24303a;
+            padding: 12px 14px;
+            font-weight:700;
+            border-bottom:1px solid #eee9df;
+        }
+        .table-scroll {
+            max-height: 300px; /* tightened to avoid page blowout */
+            overflow: auto;
+            background: white;
+        }
+        table { width:100%; border-collapse: collapse; }
+        th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid #f3efe8; font-size:13px; }
+        th { background: #fbfbfb; position: sticky; top:0; z-index: 5; font-weight:700; }
+
+        tr:hover { background: #fafaf8; }
+
+        /* Match highlights (unchanged classes kept) */
+        .match-100 { background-color: #d4edda !important; }
+        .match-75 { background-color: #fff3cd !important; }
+        .match-50 { background-color: #ffe5d0 !important; }
+        .match-low { background-color: #f8d7da !important; }
+
+        .results-section { margin-top: 12px; display:none; }
+        .results-section.active { display:block; }
+
+        .match-category { margin-bottom: 18px; }
+        .match-item { background: #fff; border-radius: 10px; padding: 12px; border:1px solid #ece8df; margin-bottom:10px; }
+
+        .match-header { font-weight:700; color:#24303a; margin-bottom:8px; }
+
+        .accuracy-bar { height: 10px; background: #f1efe9; border-radius: 6px; overflow: hidden; margin: 10px 0; }
+        .accuracy-fill { height:100%; transition: width .3s ease; }
+
+        /* diff-list and value-list behavior: collapsed vs expanded scrollable */
+        .diff-list {
+            margin-top: 10px;
+            padding: 10px;
+            background: #fafaf8;
+            border-radius: 6px;
+            font-size: 13px;
+            border:1px solid #efeadd;
+        }
+
+        .value-list {
+            max-height: none;
+            overflow: visible;
+            padding-right: 6px;
+            margin-top: 8px;
+            display:block;
+        }
+        .value-list.preview {
+            max-height: 84px; /* show small preview */
+            overflow: hidden;
+        }
+        .value-list.expanded {
+            max-height: 300px; /* expanded but bounded */
+            overflow: auto;
+            padding-right: 6px;
+        }
+        .value-list .diff-item {
+            padding: 4px 0;
+            color:#333;
+            border-bottom: 1px dashed rgba(0,0,0,0.03);
+        }
+
+        .show-more-btn {
+            margin-top: 8px;
+            display:inline-block;
+            background: transparent;
+            border: 0;
+            color: var(--accent);
+            font-weight:700;
+            cursor:pointer;
+            padding:6px 0;
+            font-size:13px;
+        }
+        .show-more-btn:hover { text-decoration: underline; }
+
+        /* Charts area - now with left sidebar for switching single large chart */
+        .charts-wrapper {
+            margin-top: 12px;
+            display: flex;
+            gap: 16px;
+            align-items: stretch;
+        }
+
+        /* Slim left sidebar - Option A style */
+        .chart-sidebar {
+            width: 72px;
+            min-width: 72px;
+            background: linear-gradient(180deg,#ffffff,#fbfcfe);
+            border: 1px solid #e6e6e6;
+            border-radius: 12px;
+            padding: 8px;
+            transition: width 220ms ease, box-shadow 220ms ease;
+            overflow: hidden;
+            position: relative;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.04);
+        }
+        /* expand on hover */
+        .chart-sidebar:hover {
+            width: 220px;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.08);
+        }
+
+        .sidebar-list {
+            display:flex;
+            flex-direction: column;
+            gap: 8px;
+            height: 100%;
+        }
+
+        .sidebar-item {
+            display:flex;
+            align-items:center;
+            gap:12px;
+            padding:10px 8px;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: background 150ms ease, transform 120ms ease;
+            color: #24303a;
+            user-select: none;
+        }
+        .sidebar-item:hover { background: rgba(36,48,58,0.04); transform: translateX(2px); }
+        .sidebar-item.active { background: linear-gradient(90deg,#eaf4ff,#eefbf4); font-weight:700; }
+
+        .sidebar-icon {
+            width:44px;
+            height:44px;
+            border-radius:10px;
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            font-size:18px;
+            background: linear-gradient(180deg,#fff,#f4f7fb);
+            box-shadow: 0 1px 6px rgba(0,0,0,0.04);
+            flex-shrink:0;
+        }
+
+        .sidebar-label {
+            white-space: nowrap;
+            opacity: 0;
+            transform: translateX(-6px);
+            transition: opacity 180ms ease, transform 180ms ease;
+            font-size: 14px;
+            color: #24303a;
+        }
+
+        /* show label only when sidebar expanded (hover state) */
+        .chart-sidebar:hover .sidebar-label {
+            opacity: 1;
+            transform: translateX(0);
+        }
+
+        .charts-main {
+            flex: 1;
+            border-radius: 12px;
+            background: white;
+            border: 1px solid #e6e6e6;
+            padding: 18px;
+            box-shadow: 0 6px 24px rgba(16,24,40,0.04);
+            min-height: 560px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .chart-holder {
+            flex: 1;
+            display: none;
+            position: relative;
+        }
+        .chart-holder.active { display: block; }
+
+        .chart-holder canvas {
+            width: 100% !important;
+            height: 420px !important;
+            max-height: 420px;
+        }
+
+        .chart-title {
+            font-size:16px;
+            font-weight:700;
+            color:#24303a;
+            margin-bottom:10px;
+        }
+
+        /* Tooltip improvements */
+        .chartjs-tooltip {
+            font-size: 15px !important;
+            padding: 10px 12px !important;
+        }
+
+        /* Responsive */
+        @media (max-width: 900px){
+            .upload-grid, .controls-grid { grid-template-columns: 1fr; }
+            .upload-right, .controls-right { order: 2; }
+            .upload-left { order: 1; }
+            .chart-sidebar { display: none; } /* hide sidebar on small devices for space */
+            .charts-wrapper { flex-direction: column; }
+            .charts-main { min-height: 320px; }
+            .chart-holder canvas { height: 240px !important; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="title">
+                <div style="font-size:28px; line-height:1;">📊</div>
+                <div>
+                    <h1>CSV Analysis & Comparison Tool</h1>
+                    <div class="subtitle">Upload 2–5 CSVs to compare, inspect, and merge — UI improved for readability</div>
+                </div>
+            </div>
+            <div>
+                <div style="text-align:right; font-size:12px; color:var(--muted)">Improved UI — value lists are now scrollable and full lists are displayed.</div>
+            </div>
+        </header>
+
+        <!-- UPLOAD -->
+        <section class="upload-section" aria-labelledby="upload-heading">
+            <div class="upload-grid">
+                <div class="upload-left">
+                    <h3 style="color:#24303a; margin-bottom:6px;">📁 Upload CSV Files (2–5 files)</h3>
+
+                    <div class="file-input-grid" aria-hidden="false">
+                        <div class="upload-box">
+                            <label class="upload-label" for="csvFile1">File 1</label>
+                            <input type="file" id="csvFile1" class="csv-input" accept=".csv" style="display:none">
+                            <div class="file-name" id="fileName1">No file</div>
+                        </div>
+                        <div class="upload-box">
+                            <label class="upload-label" for="csvFile2">File 2</label>
+                            <input type="file" id="csvFile2" class="csv-input" accept=".csv" style="display:none">
+                            <div class="file-name" id="fileName2">No file</div>
+                        </div>
+                        <div class="upload-box">
+                            <label class="upload-label" for="csvFile3">File 3 (Optional)</label>
+                            <input type="file" id="csvFile3" class="csv-input" accept=".csv" style="display:none">
+                            <div class="file-name" id="fileName3">No file</div>
+                        </div>
+                        <div class="upload-box">
+                            <label class="upload-label" for="csvFile4">File 4 (Optional)</label>
+                            <input type="file" id="csvFile4" class="csv-input" accept=".csv" style="display:none">
+                            <div class="file-name" id="fileName4">No file</div>
+                        </div>
+                        <div class="upload-box">
+                            <label class="upload-label" for="csvFile5">File 5 (Optional)</label>
+                            <input type="file" id="csvFile5" class="csv-input" accept=".csv" style="display:none">
+                            <div class="file-name" id="fileName5">No file</div>
+                        </div>
+                    </div>
+
+                    <button class="process-btn" onclick="processFiles()">📊 Process All Files</button>
+                </div>
+
+                <aside class="upload-right" aria-labelledby="help-heading">
+                    <h3 id="help-heading">Quick tips</h3>
+                    <p>Upload at least two CSVs. After processing, open Comparison Settings to pick matching behavior or specific columns.</p>
+                    <p style="font-size:13px; color:var(--muted);">Large lists are shown truncated — use <strong>Show all</strong> to open a bounded, scrollable view. Short lists are displayed fully.</p>
+                </aside>
+            </div>
+        </section>
+
+        <!-- STATS -->
+        <div id="stats" class="stats-grid" role="region" aria-label="File statistics"></div>
+
+        <!-- TABLES -->
+        <div id="tables" aria-live="polite"></div>
+
+        <!-- CONTROLS -->
+        <div class="controls" id="controls" aria-hidden="true">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                <h3 style="margin:0; color:#24303a;">⚙️ Comparison Settings</h3>
+                <div style="font-size:12px; color:var(--muted);">Choose how comparisons work</div>
+            </div>
+
+            <div class="controls-grid">
+                <div>
+                    <div class="control-group">
+                        <label for="matchMode">Matching Mode</label>
+                        <select id="matchMode">
+                            <option value="exact">Exact Match</option>
+                            <option value="case-insensitive">Case-Insensitive Match</option>
+                        </select>
+                        <div style="font-size:12px; color:var(--muted); margin-top:6px;">How strictly values & column names are compared.</div>
+                    </div>
+
+                    <div class="control-group" style="margin-top:10px;">
+                        <label>Columns to Compare</label>
+                        <div id="columnSelector" class="checkbox-group" aria-label="Column selector"></div>
+                        <div style="font-size:12px; color:var(--muted); margin-top:6px;">Check columns to restrict comparison; leave unchecked to compare all.</div>
+                    </div>
+
+                    <div class="action-row">
+                        <button class="secondary-btn" onclick="compareFiles()">🔍 Compare Files</button>
+                        <button id="downloadBtn" class="download-btn" onclick="downloadMerged()" disabled>⬇️ Download Merged CSV</button>
+                    </div>
+                </div>
+
+                <div style="padding:6px;">
+                    <h4 style="margin-bottom:8px; color:#24303a;">Preview</h4>
+                    <div style="font-size:13px; color:var(--muted);">
+                        After comparing, results and charts appear below. Use Show all to expand value lists (they stay bounded and scrollable).
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- RESULTS -->
+        <div class="results-section" id="results" aria-live="polite"></div>
+
+        <!-- CHARTS: sidebar + main -->
+        <div class="results-section" id="charts" aria-live="polite"></div>
+    </div>
+
+    <script>
+        /* ============================
+           Core logic preserved exactly.
+           UI modifications:
+            - Left slim sidebar (Option A, expand on hover)
+            - Single large chart view with switcher
+            - Colourful palette
+            - Charts created and stored; resized when shown
+           ============================ */
+
+        let uploadedFiles = [];
+        let parsedData = [];
+        let comparisonResults = null;
+        let expandableData = {}; // store values lists keyed by id
+        let chartInstances = {}; // store Chart.js instances keyed by ids
+        let currentChartKey = 'accuracy'; // default
+
+        // file input listeners (unchanged)
+        for (let i = 1; i <= 5; i++) {
+            document.getElementById(`csvFile${i}`).addEventListener('change', function(e) {
+                if (e.target.files[0]) {
+                    document.getElementById(`fileName${i}`).textContent = e.target.files[0].name;
+                } else {
+                    document.getElementById(`fileName${i}`).textContent = 'No file';
+                }
+            });
+        }
+
+        // Helper to render a value-list block consistently. Returns HTML string.
+        // Uses 'preview' class only when items.length > previewThreshold.
+        function renderValueListHtml(dataKey, items, previewThreshold = 10) {
+            const safeItems = (items || []).map(v => `<div class="diff-item">${escapeHtml(v)}</div>`).join('');
+            const count = items ? items.length : 0;
+            const hasPreview = count > previewThreshold;
+
+            // store for toggleExpand to access
+            expandableData[dataKey] = items || [];
+
+            const listClass = hasPreview ? 'value-list preview' : 'value-list';
+            const btnHtml = hasPreview ? `<button class="show-more-btn" id="btn-${dataKey}" onclick="toggleExpand('${dataKey}','btn-${dataKey}')">Show all ${count} values</button>` : '';
+
+            return `
+                <div class="value-list-wrapper">
+                    <div class="${listClass}" id="${dataKey}">
+                        ${safeItems}
+                    </div>
+                    ${btnHtml}
+                </div>
+            `;
+        }
+
+        // Toggle expand/collapse for value lists:
+        function toggleExpand(dataKey, buttonId) {
+            const element = document.getElementById(dataKey);
+            const button = document.getElementById(buttonId);
+            if (!element || !button) return;
+
+            const fullData = expandableData[dataKey] || [];
+            const previewThreshold = 10;
+
+            if (element.classList.contains('expanded')) {
+                // collapse to preview (first previewThreshold)
+                element.classList.remove('expanded');
+                element.classList.add('preview');
+                element.innerHTML = fullData.slice(0, previewThreshold).map(v => `<div class="diff-item">${escapeHtml(v)}</div>`).join('');
+                button.textContent = `Show all ${fullData.length} values`;
+            } else {
+                // expand: render full list, remove preview and add expanded
+                element.classList.remove('preview');
+                element.classList.add('expanded');
+                element.innerHTML = fullData.map(v => `<div class="diff-item">${escapeHtml(v)}</div>`).join('');
+                button.textContent = 'Show less';
+            }
+        }
+
+        // Parsing & UI wiring (preserved)
+        async function processFiles() {
+            const files = [];
+            for (let i = 1; i <= 5; i++) {
+                const input = document.getElementById(`csvFile${i}`);
+                if (input.files[0]) files.push(input.files[0]);
+            }
+
+            if (files.length < 2) { alert('Please upload at least 2 CSV files'); return; }
+            if (files.length > 5) { alert('Please upload a maximum of 5 CSV files'); return; }
+
+            uploadedFiles = files;
+            parsedData = [];
+
+            for (const file of files) { await parseCSV(file); }
+
+            displayTables();
+            displayStats();
+            populateColumnSelector();
+            document.getElementById('controls').classList.add('active');
+            document.getElementById('controls').setAttribute('aria-hidden','false');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function parseCSV(file) {
+            return new Promise((resolve) => {
+                Papa.parse(file, {
+                    header: true,
+                    dynamicTyping: true,
+                    skipEmptyLines: true,
+                    complete: (results) => {
+                        parsedData.push({
+                            filename: file.name,
+                            data: results.data,
+                            headers: results.meta.fields
+                        });
+                        resolve();
+                    }
+                });
+            });
+        }
+
+        function displayTables() {
+            const container = document.getElementById('tables');
+            container.innerHTML = '<h2 class="section-title">📋 Uploaded Data</h2>';
+
+            parsedData.forEach((file, idx) => {
+                const tableDiv = document.createElement('div');
+                tableDiv.className = 'table-container';
+
+                const header = document.createElement('div');
+                header.className = 'table-header';
+                header.textContent = file.filename;
+
+                const scrollDiv = document.createElement('div');
+                scrollDiv.className = 'table-scroll';
+                scrollDiv.id = `table-${idx}`;
+
+                const table = document.createElement('table');
+                const thead = document.createElement('thead');
+                const tbody = document.createElement('tbody');
+
+                const headerRow = document.createElement('tr');
+                file.headers.forEach(h => {
+                    const th = document.createElement('th');
+                    th.textContent = h;
+                    th.dataset.column = h;
+                    headerRow.appendChild(th);
+                });
+                thead.appendChild(headerRow);
+
+                // limit preview rows to first 100 to keep UI snappy (functionality unchanged)
+                file.data.slice(0, 100).forEach(row => {
+                    const tr = document.createElement('tr');
+                    file.headers.forEach(h => {
+                        const td = document.createElement('td');
+                        td.textContent = row[h] !== null && row[h] !== undefined ? row[h] : '';
+                        td.dataset.column = h;
+                        tr.appendChild(td);
+                    });
+                    tbody.appendChild(tr);
+                });
+
+                table.appendChild(thead);
+                table.appendChild(tbody);
+                scrollDiv.appendChild(table);
+
+                tableDiv.appendChild(header);
+                tableDiv.appendChild(scrollDiv);
+                container.appendChild(tableDiv);
+            });
+        }
+
+        function displayStats() {
+            const container = document.getElementById('stats');
+            container.innerHTML = '';
+            parsedData.forEach(file => {
+                const card = document.createElement('div');
+                card.className = 'stat-card';
+                card.innerHTML = `
+                    <h3>${escapeHtml(file.filename)}</h3>
+                    <div class="stat-value">${file.data.length}</div>
+                    <div class="stat-label">Total Rows</div>
+                    <div style="height:8px"></div>
+                    <div class="stat-value" style="font-size:18px; margin-top:6px;">${file.headers.length}</div>
+                    <div class="stat-label">Total Columns</div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        function populateColumnSelector() {
+            const container = document.getElementById('columnSelector');
+            container.innerHTML = '';
+
+            const allColumns = new Set();
+            parsedData.forEach(file => {
+                file.headers.forEach(h => allColumns.add(h.trim()));
+            });
+
+            Array.from(allColumns).sort().forEach(col => {
+                const div = document.createElement('div');
+                div.className = 'checkbox-item';
+                const safeId = col.replace(/[^a-zA-Z0-9]/g, '_');
+                div.innerHTML = `
+                    <input type="checkbox" id="col-${safeId}" value="${escapeHtml(col)}">
+                    <label for="col-${safeId}">${escapeHtml(col)}</label>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        function compareFiles() {
+            const matchMode = document.getElementById('matchMode').value;
+            const selectedCols = Array.from(document.querySelectorAll('#columnSelector input:checked')).map(cb => cb.value);
+
+            // results structure identical to original
+            const results = { fullMatches: [], partialMatches: [], crossColumnMatches: [], statistics: {} };
+
+            // gather all columns (honoring matchMode)
+            const allColumns = new Set();
+            parsedData.forEach(file => {
+                file.headers.forEach(h => {
+                    const normalized = matchMode === 'case-insensitive' ? h.toLowerCase().trim() : h.trim();
+                    allColumns.add(normalized);
+                });
+            });
+
+            const columnsToCompare = selectedCols.length > 0 ? selectedCols : Array.from(allColumns);
+
+            // Phase 1: compare same header columns
+            columnsToCompare.forEach(col => {
+                const filesWithColumn = parsedData.filter(f => {
+                    return f.headers.some(h => {
+                        const normalized = matchMode === 'case-insensitive' ? h.toLowerCase().trim() : h.trim();
+                        const colNormalized = matchMode === 'case-insensitive' ? col.toLowerCase().trim() : col.trim();
+                        return normalized === colNormalized;
+                    });
+                });
+
+                if (filesWithColumn.length < 2) return;
+
+                const values = filesWithColumn.map(f => {
+                    const actualColName = f.headers.find(h => {
+                        const normalized = matchMode === 'case-insensitive' ? h.toLowerCase().trim() : h.trim();
+                        const colNormalized = matchMode === 'case-insensitive' ? col.toLowerCase().trim() : col.trim();
+                        return normalized === colNormalized;
+                    });
+
+                    return f.data.map(row => {
+                        const val = row[actualColName];
+                        if (val === null || val === undefined || val === '') return null;
+                        const strVal = String(val).trim();
+                        return matchMode === 'case-insensitive' ? strVal.toLowerCase() : strVal;
+                    }).filter(v => v !== null);
+                });
+
+                const allValues = values.flat();
+                const uniqueValues = [...new Set(allValues)];
+                const intersection = uniqueValues.filter(v => values.every(fileVals => fileVals.includes(v)));
+                const accuracy = uniqueValues.length > 0 ? intersection.length / uniqueValues.length : 0;
+
+                const differences = [];
+                for (let i = 0; i < values.length; i++) {
+                    const thisFile = new Set(values[i]);
+                    const otherFiles = values.filter((_, idx) => idx !== i).flat();
+                    const unique = [...thisFile].filter(v => !otherFiles.includes(v));
+                    if (unique.length > 0) {
+                        differences.push({
+                            file: filesWithColumn[i].filename,
+                            uniqueValues: unique
+                        });
+                    }
+                }
+
+                const matchInfo = {
+                    column: col,
+                    files: filesWithColumn.map(f => f.filename),
+                    accuracy: accuracy,
+                    totalValues: uniqueValues.length,
+                    matchedValues: intersection.length,
+                    sharedValues: intersection,
+                    differences: differences
+                };
+
+                if (accuracy === 1 && intersection.length > 0) {
+                    results.fullMatches.push(matchInfo);
+                } else if (accuracy > 0) {
+                    results.partialMatches.push(matchInfo);
+                } else {
+                    results.partialMatches.push(matchInfo);
+                }
+            });
+
+            // Phase 2: cross-column similar values (unchanged)
+            const allFileColumns = [];
+            parsedData.forEach(file => {
+                file.headers.forEach(header => {
+                    const values = file.data.map(row => {
+                        const val = row[header];
+                        if (val === null || val === undefined || val === '') return null;
+                        const strVal = String(val).trim();
+                        return matchMode === 'case-insensitive' ? strVal.toLowerCase() : strVal;
+                    }).filter(v => v !== null);
+
+                    allFileColumns.push({
+                        filename: file.filename,
+                        columnName: header,
+                        values: values,
+                        uniqueValues: new Set(values)
+                    });
+                });
+            });
+
+            const crossMatches = [];
+            for (let i = 0; i < allFileColumns.length; i++) {
+                for (let j = i + 1; j < allFileColumns.length; j++) {
+                    const col1 = allFileColumns[i];
+                    const col2 = allFileColumns[j];
+                    if (col1.filename === col2.filename) continue;
+
+                    const normalized1 = matchMode === 'case-insensitive' ? col1.columnName.toLowerCase().trim() : col1.columnName.trim();
+                    const normalized2 = matchMode === 'case-insensitive' ? col2.columnName.toLowerCase().trim() : col2.columnName.trim();
+                    if (normalized1 === normalized2) continue;
+
+                    const intersection = [...col1.uniqueValues].filter(v => col2.uniqueValues.has(v));
+                    if (intersection.length > 0) {
+                        const allUnique = new Set([...col1.uniqueValues, ...col2.uniqueValues]);
+                        const accuracy = intersection.length / allUnique.size;
+                        const uniqueToCol1 = [...col1.uniqueValues].filter(v => !col2.uniqueValues.has(v));
+                        const uniqueToCol2 = [...col2.uniqueValues].filter(v => !col1.uniqueValues.has(v));
+
+                        if (accuracy >= 0.1) {
+                            crossMatches.push({
+                                file1: col1.filename,
+                                column1: col1.columnName,
+                                file2: col2.filename,
+                                column2: col2.columnName,
+                                accuracy: accuracy,
+                                sharedValues: intersection,
+                                totalShared: intersection.length,
+                                totalUnique: allUnique.size,
+                                differences: [
+                                    { file: col1.filename, column: col1.columnName, uniqueValues: uniqueToCol1 },
+                                    { file: col2.filename, column: col2.columnName, uniqueValues: uniqueToCol2 }
+                                ].filter(d => d.uniqueValues.length > 0)
+                            });
+                        }
+                    }
+                }
+            }
+
+            results.crossColumnMatches = crossMatches.sort((a,b) => b.accuracy - a.accuracy);
+
+            results.statistics = {
+                totalColumnsCompared: columnsToCompare.length,
+                fullMatches: results.fullMatches.length,
+                partialMatches: results.partialMatches.length,
+                crossColumnMatches: results.crossColumnMatches.length
+            };
+
+            comparisonResults = results;
+            displayResults(results);
+            highlightTables(results);
+            createCharts(); // populate charts and show the default (accuracy)
+            document.getElementById('downloadBtn').disabled = false;
+        }
+
+        // Display results — preserved logic with small UI adjustments so lists are preview + scrollable or full when short
+        function displayResults(results) {
+            const container = document.getElementById('results');
+            container.innerHTML = '<h2 class="section-title">🔎 Comparison Results</h2>';
+            container.classList.add('active');
+
+            expandableData = {}; // reset
+
+            // summary stats
+            const statsHtml = `
+                <div class="stats-grid" style="margin-bottom:12px;">
+                    <div class="stat-card"><h3>Total Compared</h3><div class="stat-value">${results.statistics.totalColumnsCompared}</div><div class="stat-label">Columns</div></div>
+                    <div class="stat-card" style="border-left:4px solid ${'var(--success)'}"><h3>Full Matches</h3><div class="stat-value" style="color:${'#28a745'}">${results.statistics.fullMatches}</div><div class="stat-label">100% Accuracy</div></div>
+                    <div class="stat-card" style="border-left:4px solid ${'#ffc107'}"><h3>Partial Matches</h3><div class="stat-value" style="color:${'#ffc107'}">${results.statistics.partialMatches}</div><div class="stat-label">With Differences</div></div>
+                    <div class="stat-card" style="border-left:4px solid ${'#17a2b8'}"><h3>Cross-Column Matches</h3><div class="stat-value" style="color:${'#17a2b8'}">${results.statistics.crossColumnMatches}</div><div class="stat-label">Different Headers, Similar Values</div></div>
+                </div>
+            `;
+            container.innerHTML += statsHtml;
+
+            // Full matches
+            if (results.fullMatches.length > 0) {
+                const fullDiv = document.createElement('div');
+                fullDiv.className = 'match-category';
+                fullDiv.innerHTML = '<h3>✅ Fully Matched Columns</h3>';
+
+                results.fullMatches.forEach((match, idx) => {
+                    const item = document.createElement('div');
+                    item.className = 'match-item';
+
+                    let sharedHtml = '';
+                    if (match.sharedValues && match.sharedValues.length > 0) {
+                        const dataKey = `shared-full-${idx}`;
+
+                        sharedHtml = `
+                            <div class="diff-list" style="background: #dff4e6; border-left:3px solid #28a745;">
+                                <strong>✓ Same values across files (${match.sharedValues.length}):</strong>
+                                ${renderValueListHtml(dataKey, match.sharedValues)}
+                            </div>
+                        `;
+                    }
+
+                    item.innerHTML = `
+                        <div class="match-header">${escapeHtml(match.column)}</div>
+                        <div style="color:#28a745; font-weight:700;">100% Match (${match.matchedValues} values)</div>
+                        <div style="font-size:13px; color:#666; margin-top:6px;">Files: ${match.files.map(f=>escapeHtml(f)).join(', ')}</div>
+                        ${sharedHtml}
+                    `;
+                    fullDiv.appendChild(item);
+                });
+
+                container.appendChild(fullDiv);
+            }
+
+            // Partial matches
+            if (results.partialMatches.length > 0) {
+                const partialDiv = document.createElement('div');
+                partialDiv.className = 'match-category';
+                partialDiv.innerHTML = '<h3>⚠️ Partially Matched Columns</h3>';
+
+                results.partialMatches.sort((a,b)=>b.accuracy-a.accuracy).forEach((match, idx) => {
+                    const percentage = (match.accuracy * 100).toFixed(1);
+                    const item = document.createElement('div');
+                    item.className = 'match-item';
+
+                    let barColor = '#dc3545';
+                    if (match.accuracy >= 0.75) barColor = '#28a745';
+                    else if (match.accuracy >= 0.5) barColor = '#ffc107';
+                    else if (match.accuracy >= 0.25) barColor = '#fd7e14';
+
+                    let sharedHtml = '';
+                    if (match.sharedValues && match.sharedValues.length > 0) {
+                        const dataKey = `shared-partial-${idx}`;
+
+                        sharedHtml = `
+                            <div class="diff-list" style="background: #dff4e6; border-left:3px solid #28a745;">
+                                <strong>✓ Same values across files (${match.sharedValues.length}):</strong>
+                                ${renderValueListHtml(dataKey, match.sharedValues)}
+                            </div>
+                        `;
+                    }
+
+                    let diffsHtml = '';
+                    if (match.differences && match.differences.length > 0) {
+                        diffsHtml = '<div class="diff-list" style="background: #fff7e6; border-left:3px solid #ffc107;"><strong>⚠ Unique values by file:</strong>';
+                        match.differences.forEach((diff, diffIdx) => {
+                            const dataKey = `diff-partial-${idx}-${diffIdx}`;
+
+                            diffsHtml += `
+                                <div style="margin-top:8px;">
+                                    <div style="font-weight:700; color:#555;">📄 ${escapeHtml(diff.file)}:</div>
+                                    ${renderValueListHtml(dataKey, diff.uniqueValues)}
+                                </div>
+                            `;
+                        });
+                        diffsHtml += '</div>';
+                    }
+
+                    item.innerHTML = `
+                        <div class="match-header">${escapeHtml(match.column)}</div>
+                        <div style="color:${barColor}; font-weight:700;">${percentage}% Match (${match.matchedValues}/${match.totalValues} values)</div>
+                        <div class="accuracy-bar"><div class="accuracy-fill" style="width:${percentage}%; background:${barColor};"></div></div>
+                        <div style="font-size:13px; color:#666; margin-top:6px;">Files: ${match.files.map(f=>escapeHtml(f)).join(', ')}</div>
+                        ${sharedHtml}
+                        ${diffsHtml}
+                    `;
+                    partialDiv.appendChild(item);
+                });
+
+                container.appendChild(partialDiv);
+            }
+
+            // Cross column matches
+            if (results.crossColumnMatches.length > 0) {
+                const crossDiv = document.createElement('div');
+                crossDiv.className = 'match-category';
+                crossDiv.innerHTML = '<h3>🔄 Cross-Column Matches (Different Headers, Similar Values)</h3>';
+
+                results.crossColumnMatches.forEach((match, idx) => {
+                    const percentage = (match.accuracy * 100).toFixed(1);
+                    const item = document.createElement('div');
+                    item.className = 'match-item';
+
+                    let barColor = '#dc3545';
+                    if (match.accuracy >= 0.75) barColor = '#28a745';
+                    else if (match.accuracy >= 0.5) barColor = '#ffc107';
+                    else if (match.accuracy >= 0.25) barColor = '#fd7e14';
+
+                    let sharedHtml = '';
+                    if (match.sharedValues && match.sharedValues.length > 0) {
+                        const dataKey = `shared-cross-${idx}`;
+
+                        sharedHtml = `
+                            <div class="diff-list" style="background: #dff4e6; border-left:3px solid #28a745;">
+                                <strong>✓ Same values (${match.totalShared}):</strong>
+                                ${renderValueListHtml(dataKey, match.sharedValues)}
+                            </div>
+                        `;
+                    }
+
+                    let diffsHtml = '';
+                    if (match.differences && match.differences.length > 0) {
+                        diffsHtml = '<div class="diff-list" style="background: #fff7e6; border-left:3px solid #ffc107;"><strong>⚠ Unique values by file:</strong>';
+                        match.differences.forEach((diff, diffIdx) => {
+                            const dataKey = `diff-cross-${idx}-${diffIdx}`;
+
+                            diffsHtml += `
+                                <div style="margin-top:8px;">
+                                    <div style="font-weight:700; color:#555;">📄 ${escapeHtml(diff.file)} - "${escapeHtml(diff.column)}":</div>
+                                    ${renderValueListHtml(dataKey, diff.uniqueValues)}
+                                </div>
+                            `;
+                        });
+                        diffsHtml += '</div>';
+                    }
+
+                    item.innerHTML = `
+                        <div class="match-header">${escapeHtml(match.file1)}: "${escapeHtml(match.column1)}" ↔️ ${escapeHtml(match.file2)}: "${escapeHtml(match.column2)}"</div>
+                        <div style="color:${barColor}; font-weight:700;">${percentage}% Match (${match.totalShared}/${match.totalUnique} unique values)</div>
+                        <div class="accuracy-bar"><div class="accuracy-fill" style="width:${percentage}%; background:${barColor};"></div></div>
+                        ${sharedHtml}
+                        ${diffsHtml}
+                    `;
+                    crossDiv.appendChild(item);
+                });
+
+                container.appendChild(crossDiv);
+            }
+        }
+
+        function escapeHtml(text){
+            if (text === null || text === undefined) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // table highlighting preserved
+        function highlightTables(results) {
+            parsedData.forEach((file, idx) => {
+                const table = document.querySelector(`#table-${idx} table`);
+                if (!table) return;
+
+                results.fullMatches.forEach(match => {
+                    if (match.files.includes(file.filename)) {
+                        const actualCol = file.headers.find(h => {
+                            const normalized = h.toLowerCase().trim();
+                            const matchNormalized = match.column.toLowerCase().trim();
+                            return normalized === matchNormalized;
+                        });
+
+                        if (actualCol) {
+                            const cells = table.querySelectorAll(`[data-column="${actualCol}"]`);
+                            cells.forEach(cell => cell.classList.add('match-100'));
+                        }
+                    }
+                });
+
+                results.partialMatches.forEach(match => {
+                    if (match.files.includes(file.filename)) {
+                        const actualCol = file.headers.find(h => {
+                            const normalized = h.toLowerCase().trim();
+                            const matchNormalized = match.column.toLowerCase().trim();
+                            return normalized === matchNormalized;
+                        });
+
+                        if (actualCol) {
+                            const cells = table.querySelectorAll(`[data-column="${actualCol}"]`);
+                            let cssClass = 'match-low';
+                            if (match.accuracy >= 0.75) cssClass = 'match-75';
+                            else if (match.accuracy >= 0.5) cssClass = 'match-50';
+                            cells.forEach(cell => cell.classList.add(cssClass));
+                        }
+                    }
+                });
+            });
+        }
+
+        // Charts implementation — now using single large canvas view with sidebar switcher.
+
+        function createCharts() {
+            const container = document.getElementById('charts');
+            container.innerHTML = '<h2 class="section-title">📈 Data Visualizations</h2>';
+            container.classList.add('active');
+
+            // Build wrapper: sidebar + main
+            const wrapper = document.createElement('div');
+            wrapper.className = 'charts-wrapper';
+
+            // Sidebar (Option A, slim)
+            const sidebar = document.createElement('div');
+            sidebar.className = 'chart-sidebar';
+            sidebar.innerHTML = `
+                <div class="sidebar-list" role="tablist" aria-label="Chart selector">
+                    <div class="sidebar-item" data-chart="accuracy" role="tab" title="Match Accuracy Distribution">
+                        <div class="sidebar-icon">📊</div>
+                        <div class="sidebar-label">Match Accuracy</div>
+                    </div>
+                    <div class="sidebar-item" data-chart="dist" role="tab" title="Columns & Rows per File">
+                        <div class="sidebar-icon">📁</div>
+                        <div class="sidebar-label">Columns & Rows</div>
+                    </div>
+                    <div class="sidebar-item" data-chart="cross" role="tab" title="Cross-Column Match Intensity">
+                        <div class="sidebar-icon">🔄</div>
+                        <div class="sidebar-label">Cross-Column Intensity</div>
+                    </div>
+                    <div class="sidebar-item" data-chart="pie" role="tab" title="Match Type Distribution">
+                        <div class="sidebar-icon">🥧</div>
+                        <div class="sidebar-label">Match Distribution</div>
+                    </div>
+                </div>
+            `;
+
+            // Main chart area
+            const main = document.createElement('div');
+            main.className = 'charts-main';
+
+            // Append holders for each chart (only one visible at a time)
+            const holders = {
+                accuracy: createChartHolder('Match Accuracy Distribution', 'accuracyChart'),
+                dist: createChartHolder('Columns & Rows per File', 'distChart'),
+                cross: createChartHolder('Cross-Column Match Intensity', 'crossChart'),
+                pie: createChartHolder('Match Type Distribution', 'pieChart')
+            };
+
+            Object.values(holders).forEach(h => main.appendChild(h));
+
+            wrapper.appendChild(sidebar);
+            wrapper.appendChild(main);
+            container.appendChild(wrapper);
+
+            // Activate sidebar click handlers and default selection
+            const items = sidebar.querySelectorAll('.sidebar-item');
+            items.forEach(it => {
+                it.addEventListener('click', () => {
+                    const key = it.dataset.chart;
+                    switchChart(key);
+                });
+            });
+
+            // Mark default active
+            const defaultItem = sidebar.querySelector('.sidebar-item[data-chart="' + currentChartKey + '"]');
+            if (defaultItem) defaultItem.classList.add('active');
+
+            // Prepare colourful palettes (vibrant)
+            const VIBRANT = {
+                teal: '#00bfa5',
+                cyan: '#00a6ff',
+                purple: '#7c4dff',
+                magenta: '#ff2d95',
+                orange: '#ff7a18',
+                yellow: '#ffd166',
+                green: '#2ecc71',
+                indigo: '#3b82f6',
+                red: '#ff4d6d',
+                lime: '#a3e635'
+            };
+
+            // Chart-specific palettes
+            const ACCURACY_COLORS = {
+                high:    VIBRANT.green,   // 95–100%
+                medHigh: VIBRANT.cyan,    // 75–94%
+                medium:  VIBRANT.yellow,  // 50–74%
+                low:     VIBRANT.orange,  // 25–49%
+                veryLow: VIBRANT.magenta  // 0–24%
+            };
+
+            const CHART2_COLORS = {
+                columns: VIBRANT.purple,
+                rows:    VIBRANT.cyan
+            };
+
+            const CHART3_COLOR = VIBRANT.indigo;
+
+            const CHART4_COLORS = [
+                VIBRANT.green,   // Full matches
+                VIBRANT.yellow,  // Partial
+                VIBRANT.magenta  // Cross-column
+            ];
+
+            // ---------- Chart 1: Accuracy ----------
+            (function buildAccuracy(){
+                const ctx = document.getElementById('accuracyChart').getContext('2d');
+                const allMatches = comparisonResults ? [...comparisonResults.fullMatches, ...comparisonResults.partialMatches] : [];
+                const accuracies = allMatches.map(m => m.accuracy * 100);
+                const labels = allMatches.map(m =>
+                    m.column.length > 30 ? m.column.substring(0, 30) + '…' : m.column
+                );
+
+                const bg = accuracies.map(a => {
+                    if (a >= 95) return ACCURACY_COLORS.high;
+                    if (a >= 75) return ACCURACY_COLORS.medHigh;
+                    if (a >= 50) return ACCURACY_COLORS.medium;
+                    if (a >= 25) return ACCURACY_COLORS.low;
+                    return ACCURACY_COLORS.veryLow;
+                });
+
+                const chart = new Chart(ctx, {
+                    type: "bar",
+                    data: {
+                        labels,
+                        datasets: [{
+                            label: "Accuracy (%)",
+                            data: accuracies,
+                            borderRadius: 10,
+                            backgroundColor: bg
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                max: 100,
+                                grid: { color: "#e7e7e7" },
+                                ticks: { font: { size: 14 } }
+                            },
+                            x: {
+                                grid: { display: false },
+                                ticks: { font: { size: 13 } }
+                            }
+                        },
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: {
+                                backgroundColor: "rgba(32, 40, 48, 0.92)",
+                                titleFont: { size: 15 },
+                                bodyFont: { size: 14 },
+                                padding: 12
+                            }
+                        }
+                    }
+                });
+
+                chartInstances['accuracy'] = chart;
+            })();
+
+            // ---------- Chart 2: Columns & Rows ----------
+            (function buildDist(){
+                const ctx = document.getElementById('distChart').getContext('2d');
+                const fileNames = parsedData.map(f =>
+                    f.filename.length > 28 ? f.filename.substring(0, 28) + '…' : f.filename
+                );
+                const columnCounts = parsedData.map(f => f.headers.length);
+                const rowCounts = parsedData.map(f => f.data.length);
+
+                const chart = new Chart(ctx, {
+                    type: "bar",
+                    data: {
+                        labels: fileNames,
+                        datasets: [
+                            {
+                                label: "Columns",
+                                data: columnCounts,
+                                borderRadius: 10,
+                                backgroundColor: CHART2_COLORS.columns
+                            },
+                            {
+                                label: "Rows",
+                                data: rowCounts,
+                                borderRadius: 10,
+                                backgroundColor: CHART2_COLORS.rows
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                grid: { color: "#e7e7e7" },
+                                ticks: { font: { size: 14 } }
+                            },
+                            x: {
+                                grid: { display: false },
+                                ticks: { font: { size: 13 } }
+                            }
+                        },
+                        plugins: {
+                            tooltip: {
+                                backgroundColor: "rgba(32, 40, 48, 0.92)",
+                                titleFont: { size: 15 },
+                                bodyFont: { size: 14 },
+                                padding: 12
+                            }
+                        }
+                    }
+                });
+
+                chartInstances['dist'] = chart;
+            })();
+
+            // ---------- Chart 3: Cross ----------
+            (function buildCross(){
+                const ctx = document.getElementById('crossChart').getContext('2d');
+                const top = comparisonResults ? comparisonResults.crossColumnMatches.slice(0, 20) : [];
+                const labelsX = top.map(m =>
+                    `${m.column1.substring(0, 12)} ↔ ${m.column2.substring(0, 12)}`
+                );
+                const dataVals = top.map(m => (m.accuracy * 100).toFixed(1));
+
+                const chart = new Chart(ctx, {
+                    type: "bar",
+                    data: {
+                        labels: labelsX,
+                        datasets: [{
+                            label: "Match (%)",
+                            data: dataVals,
+                            borderRadius: 10,
+                            backgroundColor: CHART3_COLOR
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        indexAxis: "y",
+                        scales: {
+                            x: {
+                                beginAtZero: true,
+                                max: 100,
+                                grid: { color: "#e7e7e7" },
+                                ticks: { font: { size: 14 } }
+                            },
+                            y: {
+                                grid: { display: false },
+                                ticks: { font: { size: 13 } }
+                            }
+                        },
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: {
+                                backgroundColor: "rgba(32, 40, 48, 0.92)",
+                                titleFont: { size: 15 },
+                                bodyFont: { size: 14 },
+                                padding: 12,
+                                callbacks: {
+                                    label: function(ctx) {
+                                        const match = top[ctx.dataIndex];
+                                        return [
+                                            `File 1: ${match ? match.file1 : ''}`,
+                                            `Column 1: ${match ? match.column1 : ''}`,
+                                            `File 2: ${match ? match.file2 : ''}`,
+                                            `Column 2: ${match ? match.column2 : ''}`,
+                                            `Shared Values: ${match ? match.totalShared : 0}`,
+                                            `Total Unique: ${match ? match.totalUnique : 0}`,
+                                            `Match: ${ctx.parsed.x}%`
+                                        ];
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+
+                chartInstances['cross'] = chart;
+            })();
+
+            // ---------- Chart 4: Pie ----------
+            (function buildPie(){
+                const ctx = document.getElementById('pieChart').getContext('2d');
+                const chart = new Chart(ctx, {
+                    type: "doughnut",
+                    data: {
+                        labels: ["Full Matches", "Partial Matches", "Cross-Column"],
+                        datasets: [{
+                            data: [
+                                comparisonResults ? comparisonResults.fullMatches.length : 0,
+                                comparisonResults ? comparisonResults.partialMatches.length : 0,
+                                comparisonResults ? comparisonResults.crossColumnMatches.length : 0
+                            ],
+                            backgroundColor: CHART4_COLORS,
+                            borderWidth: 2,
+                            borderColor: "white"
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            tooltip: {
+                                backgroundColor: "rgba(32, 40, 48, 0.92)",
+                                titleFont: { size: 15 },
+                                bodyFont: { size: 14 },
+                                padding: 12,
+                                callbacks: {
+                                    label: ctx => `${ctx.label}: ${ctx.parsed} columns`
+                                }
+                            }
+                        }
+                    }
+                });
+
+                chartInstances['pie'] = chart;
+            })();
+
+            // display the correct holder initially
+            switchChart(currentChartKey, /* forceResize */ true);
+        }
+
+        // helper to create chart holder DOM
+        function createChartHolder(title, canvasId) {
+            const holder = document.createElement('div');
+            holder.className = 'chart-holder';
+            holder.id = 'holder-' + canvasId;
+
+            const titleEl = document.createElement('div');
+            titleEl.className = 'chart-title';
+            titleEl.textContent = title;
+
+            const canvas = document.createElement('canvas');
+            canvas.id = canvasId;
+
+            holder.appendChild(titleEl);
+            holder.appendChild(canvas);
+
+            return holder;
+        }
+
+        // Switch chart view (hide/show and update active sidebar item)
+        function switchChart(key, forceResize = false) {
+            const allHolders = document.querySelectorAll('.chart-holder');
+            allHolders.forEach(h => h.classList.remove('active'));
+            const targetHolder = document.getElementById('holder-' + (key === 'accuracy' ? 'accuracyChart' : (key === 'dist' ? 'distChart' : (key === 'cross' ? 'crossChart' : 'pieChart'))));
+            if (targetHolder) targetHolder.classList.add('active');
+
+            // update sidebar active state
+            const sidebar = document.querySelector('.chart-sidebar');
+            if (sidebar) {
+                sidebar.querySelectorAll('.sidebar-item').forEach(it => it.classList.remove('active'));
+                const sel = sidebar.querySelector('.sidebar-item[data-chart="' + key + '"]');
+                if (sel) sel.classList.add('active');
+            }
+
+            currentChartKey = key;
+
+            // Chart.js requires a resize/update when the canvas becomes visible
+            setTimeout(() => {
+                if (chartInstances && chartInstances[key]) {
+                    try {
+                        chartInstances[key].resize();
+                        chartInstances[key].update();
+                    } catch(e) {
+                        // safe fail
+                        console.warn('Chart update error', e);
+                    }
+                }
+                // ensure other charts don't remain stale visually
+                Object.keys(chartInstances).forEach(k => {
+                    if (k !== key && chartInstances[k]) {
+                        try { chartInstances[k].update(); } catch(e) {}
+                    }
+                });
+            }, forceResize ? 60 : 100); // small delay to allow CSS transition when sidebar expands
+        }
+
+        // Download merged (unchanged functionality)
+        function downloadMerged() {
+            if (!comparisonResults) return;
+
+            const allColumns = new Set();
+            parsedData.forEach(f => f.headers.forEach(h => allColumns.add(h)));
+
+            const mergedHeaders = Array.from(allColumns);
+            const maxRows = Math.max(...parsedData.map(f => f.data.length));
+
+            const mergedData = [];
+
+            for (let i = 0; i < maxRows; i++) {
+                const row = {};
+                mergedHeaders.forEach(col => {
+                    const values = [];
+                    parsedData.forEach(file => {
+                        if (file.headers.includes(col) && file.data[i]) {
+                            const val = file.data[i][col];
+                            if (val !== null && val !== undefined && val !== '') values.push(String(val));
+                        }
+                    });
+
+                    const matchInfo = [...comparisonResults.fullMatches, ...comparisonResults.partialMatches].find(m => m.column === col);
+
+                    if (matchInfo && matchInfo.accuracy < 0.75 && values.length > 1) {
+                        const uniqueVals = [...new Set(values)];
+                        if (uniqueVals.length > 1) {
+                            row[col] = uniqueVals.join(' * ');
+                        } else {
+                            row[col] = values[0] || '';
+                        }
+                    } else {
+                        row[col] = values[0] || '';
+                    }
+                });
+                mergedData.push(row);
+            }
+
+            const csv = Papa.unparse(mergedData);
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'merged_comparison.csv';
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+    </script>
+</body>
+</html>
