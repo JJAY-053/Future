@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Emoji Cipher Tool</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            max-width: 800px;
+            width: 100%;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+        
+        h1 {
+            color: #667eea;
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+        }
+        
+        .input-group {
+            margin-bottom: 20px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 600;
+        }
+        
+        textarea {
+            width: 100%;
+            padding: 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 16px;
+            resize: vertical;
+            min-height: 120px;
+            font-family: inherit;
+            transition: border-color 0.3s;
+        }
+        
+        textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .button-group {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+        
+        button {
+            flex: 1;
+            padding: 15px 30px;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .cipher-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .cipher-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
+        }
+        
+        .decipher-btn {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+        }
+        
+        .decipher-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(245, 87, 108, 0.4);
+        }
+        
+        .output {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            word-wrap: break-word;
+            line-height: 1.8;
+            font-size: 18px;
+            min-height: 100px;
+            border: 2px solid #e0e0e0;
+        }
+        
+        .info {
+            background: #e3f2fd;
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 20px;
+            border-left: 4px solid #2196f3;
+        }
+        
+        .info p {
+            color: #1565c0;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔐 Emoji Cipher Tool</h1>
+        
+        <div class="input-group">
+            <label for="inputText">Enter your text:</label>
+            <textarea id="inputText" placeholder="Type your message here..."></textarea>
+        </div>
+        
+        <div class="button-group">
+            <button class="cipher-btn" onclick="cipherText()">🔒 Cipher</button>
+            <button class="decipher-btn" onclick="decipherText()">🔓 Decipher</button>
+        </div>
+        
+        <div class="input-group">
+            <label>Result:</label>
+            <div class="output" id="output">Your result will appear here...</div>
+        </div>
+        
+        <div class="info">
+            <p><strong>How it works:</strong> The cipher converts each character to ASCII, then to 8-bit binary, and replaces each bit and special character with random emojis from predefined sets. Deciphering reverses this process!</p>
+        </div>
+    </div>
+
+    <script>
+        // Emoji sets - diverse and unique emojis for each category
+        const emojiSets = {
+            '0': ['🏔️', '🎭', '🎲', '🌊', '🚀'],
+            '1': ['🍃', '☁️', '🎀', '🎱', '🎪'],
+            ' ': ['🎯', '💑', '🔥', '🌸', '🦋'],
+            '.': ['🌟', '⭐', '✨'],
+            '/': ['⚡', '❄️', '🎸'],
+            '*': ['🌺', '🌈', '🌻'],
+            '!': ['🎉', '🎊', '🎆'],
+            '?': ['🤔', '❓', '🔍'],
+            ',': ['🍀', '🌿', '🎋'],
+            '"': ['📖', '📚', '📝'],
+            ':': ['🎵', '🎶', '🎼'],
+            '(': ['🌅', '🌄', '🌇'],
+            ')': ['🌙', '⛰️', '🗻'],
+            ';': ['😊', '🔵', '🎨'],
+            '-': ['➖', '〰️', '➗'],
+            '+': ['➕', '✅', '🤍'],
+            '=': ['🔶', '🔷', '🔸'],
+            '[': ['📦', '🎁', '💎'],
+            ']': ['🏆', '🥇', '🏅'],
+            '{': ['🌀', '🔄', '♻️'],
+            '}': ['❤️', '😎', '🎰'],
+            '<': ['◀️', '⏪', '⬅️'],
+            '>': ['▶️', '⏩', '➡️'],
+            '&': ['🤝', '👥', '☀️'],
+            '%': ['💯', '📊', '📈'],
+            '$': ['💰', '💵', '💴'],
+            '#': ['🔢', '#️⃣', '🏷️'],
+            '@': ['📧', '✉️', '💌'],
+            '\\': ['🔀', '🔃', '🔂'],
+            '|': ['📏', '📐', '🎚️'],
+            '~': ['😃', '〰️', '🔊'],
+            '`': ['💬', '🗨️', '🗯️'],
+            '_': ['🔻', '🔽', '⬇️'],
+            '^': ['🔺', '🔼', '⬆️']
+        };
+
+        // Create reverse mapping for decoding
+        const emojiToValue = {};
+        for (const [key, emojis] of Object.entries(emojiSets)) {
+            for (const emoji of emojis) {
+                emojiToValue[emoji] = key;
+            }
+        }
+
+        function getRandomEmoji(set) {
+            return set[Math.floor(Math.random() * set.length)];
+        }
+
+        function charToBinary(char) {
+            const ascii = char.charCodeAt(0);
+            let binary = '';
+            
+            // Convert to 8-bit binary
+            for (let i = 7; i >= 0; i--) {
+                const power = Math.pow(2, i);
+                if (ascii >= power) {
+                    binary += '1';
+                } else {
+                    binary += '0';
+                }
+            }
+            
+            return binary;
+        }
+
+        function binaryToChar(binary) {
+            let ascii = 0;
+            for (let i = 0; i < 8; i++) {
+                if (binary[i] === '1') {
+                    ascii += Math.pow(2, 7 - i);
+                }
+            }
+            return String.fromCharCode(ascii);
+        }
+
+        function cipherText() {
+            const input = document.getElementById('inputText').value;
+            let result = '';
+            
+            for (const char of input) {
+                // Check if character is a special character with its own emoji set
+                if (emojiSets[char]) {
+                    result += getRandomEmoji(emojiSets[char]);
+                } else {
+                    // Convert to binary and then to emojis
+                    const binary = charToBinary(char);
+                    for (const bit of binary) {
+                        result += getRandomEmoji(emojiSets[bit]);
+                    }
+                }
+            }
+            
+            document.getElementById('output').textContent = result;
+        }
+
+        function decipherText() {
+            const input = document.getElementById('inputText').value;
+            let result = '';
+            let binaryBuffer = '';
+            
+            // Convert input string to array of individual emojis
+            const emojis = Array.from(input);
+            
+            for (const emoji of emojis) {
+                const value = emojiToValue[emoji];
+                
+                if (value === undefined) {
+                    // Unknown emoji, keep it as is
+                    result += emoji;
+                } else if (value === '0' || value === '1') {
+                    // Binary digit
+                    binaryBuffer += value;
+                    
+                    // When we have 8 bits, convert to character
+                    if (binaryBuffer.length === 8) {
+                        result += binaryToChar(binaryBuffer);
+                        binaryBuffer = '';
+                    }
+                } else {
+                    // Special character (space, punctuation, etc.)
+                    // First, flush any pending binary
+                    if (binaryBuffer.length > 0) {
+                        // Incomplete binary - this shouldn't happen in valid cipher text
+                        binaryBuffer = '';
+                    }
+                    result += value;
+                }
+            }
+            
+            document.getElementById('output').textContent = result;
+        }
+    </script>
+</body>
+</html>
