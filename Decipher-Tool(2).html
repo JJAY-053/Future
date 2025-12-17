@@ -1,0 +1,691 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Decipher Tool — Upgraded</title>
+<style>
+/* ============== Theme & Reset ============== */
+:root{
+  --bg:#f6f7fb; --card:#fff; --muted:#6b7280; --text:#0f1724;
+  --accent:#2563eb; --accent-2:#7c3aed; --glass: rgba(255,255,255,0.6);
+  --radius:12px; --shadow: 0 8px 30px rgba(15,23,36,0.06);
+}
+[data-theme="dark"]{
+  --bg:#0b1020; --card:#0f1724; --muted:#9aa4b2; --text:#e6eef8;
+  --accent:#60a5fa; --accent-2:#8b5cf6; --glass: rgba(255,255,255,0.03);
+  --shadow: 0 8px 30px rgba(2,6,23,0.7);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+  background: linear-gradient(180deg,var(--bg), #e9eefb 120%);
+  color:var(--text);
+  -webkit-font-smoothing:antialiased;
+  -moz-osx-font-smoothing:grayscale;
+  padding:28px;
+}
+
+/* ============== Layout ============== */
+.app {
+  max-width:1200px;
+  margin:0 auto;
+  display:grid;
+  grid-template-columns: 1fr 420px;
+  gap:20px;
+  align-items:start;
+}
+/* Responsive */
+@media (max-width:1000px){
+  .app{grid-template-columns:1fr; padding:0 12px}
+}
+
+/* ============== Header ============== */
+.header {
+  grid-column:1/-1;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  margin-bottom:6px;
+}
+.header .title {
+  display:flex; gap:14px; align-items:center;
+}
+.logo {
+  width:54px; height:54px; border-radius:14px; display:flex; align-items:center; justify-content:center;
+  background:linear-gradient(135deg,var(--accent), var(--accent-2)); color:white; font-weight:700; box-shadow:var(--shadow);
+  transform:translateY(-2px);
+  position:relative;
+  overflow:hidden;
+}
+.logo svg {
+  width:30px;
+  height:30px;
+  fill:white;
+}
+h1{font-size:1.18rem; letter-spacing:-0.2px}
+.subtitle{color:var(--muted); font-size:0.92rem}
+
+/* ============== Card ============== */
+.card {
+  background:var(--card);
+  border-radius:var(--radius);
+  box-shadow:var(--shadow);
+  padding:18px;
+  transition:transform .25s ease, box-shadow .25s ease;
+  overflow:hidden;
+}
+.card:hover{transform:translateY(-6px)}
+
+/* ============== Left Column (Inputs) ============== */
+.controls { display:flex; flex-direction:column; gap:14px; }
+label{font-size:0.92rem; color:var(--muted); margin-bottom:6px}
+
+/* input styles */
+textarea.input{
+  width:100%; min-height:200px; resize:vertical;
+  padding:14px; border-radius:10px; border:1px solid rgba(15,23,36,0.06);
+  background:var(--glass); color:var(--text); font-family:inherit; font-size:0.95rem;
+  transition:box-shadow .18s ease, border-color .18s ease;
+}
+textarea.input:focus{box-shadow:0 6px 22px rgba(37,99,235,0.08); outline:none; border-color:rgba(37,99,235,0.35)}
+
+/* controls row */
+.row { display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
+.input-group{flex:1; min-width:120px;}
+.small{font-size:0.88rem; color:var(--muted)}
+
+/* slider */
+.slider {
+  -webkit-appearance:none; appearance:none; width:100%; height:8px; border-radius:999px; background:linear-gradient(90deg,var(--accent),var(--accent-2));
+  outline:none; box-shadow:0 6px 18px rgba(124,58,237,0.08);
+}
+.slider::-webkit-slider-thumb{ -webkit-appearance:none; appearance:none; width:18px; height:18px; border-radius:50%; background:#fff; box-shadow:0 6px 14px rgba(2,6,23,0.12); border:4px solid rgba(255,255,255,0.6)}
+
+/* buttons */
+.btn {
+  padding:10px 14px; border-radius:10px; font-weight:600; cursor:pointer; border:none; font-size:0.95rem;
+  transition:transform .15s ease, box-shadow .15s ease;
+}
+.btn:active{transform:translateY(1px)}
+.btn-primary{background:linear-gradient(90deg,var(--accent),var(--accent-2)); color:white; box-shadow:0 8px 26px rgba(99,102,241,0.12)}
+.btn-ghost{background:transparent;border:1px solid rgba(15,23,36,0.06); color:var(--text)}
+
+/* utility */
+.row-between{display:flex; justify-content:space-between; align-items:center}
+
+/* ============== Right Column (Preview & Results) ============== */
+.preview {
+  display:flex; flex-direction:column; gap:12px;
+  position:sticky; top:28px;
+}
+
+/* live preview card */
+.preview-top{
+  display:flex; gap:12px; align-items:center; justify-content:space-between;
+}
+.preview-body{
+  padding:12px; border-radius:10px; background:linear-gradient(180deg, rgba(255,255,255,0.6), rgba(255,255,255,0.4));
+  min-height:160px; font-family: 'Courier New', monospace; white-space:pre-wrap; overflow:auto; font-size:0.95rem;
+  transition:transform .12s ease;
+  border:1px solid rgba(15,23,36,0.04);
+  color:var(--text);
+  word-break:break-word;
+}
+
+/* result list / accordion */
+.result-list{
+  width:100%; 
+  min-height:200px; 
+  max-height:420px; 
+  resize:vertical;
+  padding:14px; 
+  border-radius:10px; 
+  border:1px solid rgba(15,23,36,0.06);
+  background:var(--glass); 
+  color:var(--text); 
+  font-family:'Courier New', monospace; 
+  font-size:0.95rem;
+  overflow-y:auto;
+  overflow-x:hidden;
+  white-space:pre-wrap;
+  word-wrap:break-word;
+  line-height:1.6;
+  transition:box-shadow .18s ease, border-color .18s ease;
+}
+.result-list:focus{
+  box-shadow:0 6px 22px rgba(37,99,235,0.08); 
+  outline:none; 
+  border-color:rgba(37,99,235,0.35);
+}
+.result-item{
+  display:none;
+}
+.result-header{
+  display:none;
+}
+.level{
+  display:none;
+}
+.badge{display:none;}
+.result-content{
+  display:none;
+}
+
+/* buttons in results */
+.action-row{display:flex; gap:8px; margin-left:6px}
+.icon-btn{padding:8px 10px; border-radius:8px; background:transparent; border:1px solid rgba(15,23,36,0.04); cursor:pointer}
+
+/* highlight best */
+.best { box-shadow: 0 8px 30px rgba(96,165,250,0.08); border:1px solid rgba(37,99,235,0.12); }
+
+/* no results */
+.empty{padding:24px; text-align:center; color:var(--muted)}
+
+/* animations */
+@keyframes fadeIn { from{opacity:0; transform:translateY(4px)} to{opacity:1; transform:none} }
+
+/* tooltip style */
+.tooltip {
+  position:relative; display:inline-block;
+}
+.tooltip .tiptext{
+  visibility:hidden; width:210px; background:var(--card); color:var(--muted); text-align:left; padding:8px 10px; border-radius:8px;
+  border:1px solid rgba(15,23,36,0.04); position:absolute; z-index:50; bottom:125%; left:50%; transform:translateX(-50%); font-size:0.86rem; box-shadow:var(--shadow);
+  opacity:0; transition:opacity .15s ease, visibility .15s ease;
+}
+.tooltip:hover .tiptext{ visibility:visible; opacity:1; transform:translateX(-50%) translateY(-6px) }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- Header -->
+  <div class="header">
+    <div class="title">
+      <div class="logo">
+        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <path d="M12 2L2 7v10c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V7l-10-5zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V7.3l7-3.11v8.8z"/>
+        </svg>
+      </div>
+      <div>
+        <h1>Decipher Tool — Upgraded</h1>
+        <div class="subtitle">Batch decoding • live preview • auto-detect best shift</div>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:10px;align-items:center">
+      <button id="themeToggle" class="btn btn-ghost tooltip" title="Toggle light/dark theme">🌓
+        <span class="tiptext">Toggle theme</span>
+      </button>
+      <div class="small" style="color:var(--muted)">Minimal · Fast</div>
+    </div>
+  </div>
+
+  <!-- Left: Inputs -->
+  <div class="card controls" aria-label="Cipher input area">
+    <div>
+      <label for="cipherInput">Encrypted message(s)</label>
+      <textarea id="cipherInput" class="input" placeholder="Paste messages here. For batch: one per line." aria-label="Encrypted messages"></textarea>
+      <div class="small" style="margin-top:8px; color:var(--muted)">For multiple messages, enter each on its own line.</div>
+    </div>
+
+    <div class="row">
+      <div class="input-group">
+        <label for="shiftNumber">Shift</label>
+        <div class="row" style="align-items:center">
+          <input id="shiftNumber" type="number" min="1" max="100" value="1" style="padding:10px;border-radius:10px;border:1px solid rgba(15,23,36,0.06);width:110px" aria-label="Shift number" />
+          <input id="shiftRange" class="slider" type="range" min="1" max="100" value="1" aria-label="Shift slider"
+                 title="Drag to preview decoded text instantly"/>
+        </div>
+      </div>
+
+      <div style="width:200px">
+        <label>Options</label>
+        <div class="row">
+          <label style="display:flex;gap:8px;align-items:center">
+            <input id="batchMode" type="checkbox" />
+            <span class="small">Batch mode</span>
+          </label>
+          <label class="tooltip" style="display:flex;gap:8px;align-items:center">
+            <input id="livePreviewToggle" type="checkbox" checked />
+            <span class="small">Live preview</span>
+            <span class="tiptext">Dragging slider updates preview instantly.</span>
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <div class="row" style="margin-top:6px;align-items:center">
+      <div class="row">
+        <button id="decodeSingle" class="btn btn-primary tooltip" title="Decode using selected shift">🔓 Decode Selected</button>
+        <span class="tiptext">Decode with chosen shift.</span>
+      </div>
+
+      <div style="margin-left:auto; display:flex; gap:10px">
+        <button id="detectBest" class="btn btn-ghost tooltip" title="Auto-detect best shift">🔎 Auto-detect</button>
+        <span class="tiptext">Find most-likely shift.</span>
+        <button id="decodeAll" class="btn btn-ghost tooltip" title="Show all shifts (1–100)">🧩 All shifts</button>
+        <span class="tiptext">Show all shifts 1–100.</span>
+      </div>
+    </div>
+
+    <div style="margin-top:8px; display:flex; gap:10px; align-items:center">
+      <div class="small" id="progressLabel">Messages: <strong id="msgCount">0</strong></div>
+      <div style="flex:1; height:8px; border-radius:999px; background:rgba(15,23,36,0.04); overflow:hidden">
+        <div id="progressBar" style="width:0%; height:100%; background:linear-gradient(90deg,var(--accent),var(--accent-2)); transition:width .2s ease"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Right: Preview & Results -->
+  <div class="preview">
+
+    <div class="card preview-top">
+      <div style="display:flex;flex-direction:column">
+        <div style="font-weight:700">Live preview</div>
+        <div class="small" style="color:var(--muted)">Shows decoded text for current shift.</div>
+      </div>
+
+      <div style="text-align:right">
+        <div class="small" style="color:var(--muted)">Auto-detect highlights best shift</div>
+      </div>
+    </div>
+
+    <div id="livePreview" class="card preview-body" aria-live="polite">Nothing to preview yet — paste a message.</div>
+
+    <div class="card" style="padding:12px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <div style="display:flex;align-items:center;gap:12px">
+          <div style="font-weight:700">Decoded results</div>
+          <label style="display:flex;gap:8px;align-items:center;font-size:0.88rem;color:var(--muted);cursor:pointer">
+            <input id="showSelectedShift" type="checkbox" />
+            <span class="small">Use selected shift</span>
+          </label>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <button id="copyAll" class="icon-btn tooltip" title="Copy all decoded results">📋
+            <span class="tiptext">Copy all decoded text.</span>
+          </button>
+          <button id="clearBtn" class="icon-btn tooltip" title="Clear inputs & results">🗑
+            <span class="tiptext">Clear inputs & results.</span>
+          </button>
+        </div>
+      </div>
+
+      <div id="results" class="result-list" role="list">
+        <div class="empty">No results yet. Use <strong>Decode Selected</strong>, <strong>Auto-detect</strong>, or <strong>All shifts</strong>.</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+/* =========================
+   Utility & Initialization
+   ========================= */
+const $ = sel => document.querySelector(sel);
+const $$ = sel => Array.from(document.querySelectorAll(sel));
+
+const cipherInput = $('#cipherInput');
+const shiftNumber = $('#shiftNumber');
+const shiftRange = $('#shiftRange');
+const livePreview = $('#livePreview');
+const resultsEl = $('#results');
+const msgCount = $('#msgCount');
+const progressBar = $('#progressBar');
+const progressLabel = $('#progressLabel');
+
+const decodeSingleBtn = $('#decodeSingle');
+const decodeAllBtn = $('#decodeAll');
+const detectBestBtn = $('#detectBest');
+const batchModeCheckbox = $('#batchMode');
+const livePreviewToggle = $('#livePreviewToggle');
+const copyAllBtn = $('#copyAll');
+const clearBtn = $('#clearBtn');
+const themeToggle = $('#themeToggle');
+const showSelectedShift = $('#showSelectedShift');
+
+let allResults = []; // structured: [{id, original, shifts:[{shift,decoded,score}], bestShiftIndex}]
+let renderToken = 0;
+let theme = localStorage.getItem('theme') || 'light';
+document.documentElement.setAttribute('data-theme', theme);
+
+/* Theme toggle */
+themeToggle.addEventListener('click', ()=>{
+  theme = (theme === 'light') ? 'dark' : 'light';
+  document.documentElement.setAttribute('data-theme', theme);
+  localStorage.setItem('theme', theme);
+});
+
+/* Sync slider and number input with live preview */
+shiftNumber.addEventListener('input', ()=> {
+  let v = Math.max(1, Math.min(100, parseInt(shiftNumber.value) || 1));
+  shiftNumber.value = v;
+  shiftRange.value = v;
+  if (livePreviewToggle.checked) {
+    updateLivePreviewDebounced();
+    // Update results if "Use selected shift" is checked
+    if (showSelectedShift.checked && allResults.length > 0) {
+      renderResults();
+    }
+  }
+});
+shiftRange.addEventListener('input', ()=> {
+  shiftNumber.value = shiftRange.value;
+  if (livePreviewToggle.checked) {
+    updateLivePreviewDebounced();
+    // Update results if "Use selected shift" is checked
+    if (showSelectedShift.checked && allResults.length > 0) {
+      renderResults();
+    }
+  }
+});
+
+/* Debounce helper for live preview */
+function debounce(fn, wait=80){
+  let t;
+  return (...args)=>{ clearTimeout(t); t=setTimeout(()=>fn(...args), wait); };
+}
+const updateLivePreviewDebounced = debounce(updateLivePreview, 40);
+
+/* Prepare message list from input */
+function getMessages(){
+  const raw = cipherInput.value.replace(/\r/g,'').split('\n').map(s=>s.trim()).filter(Boolean);
+  return raw;
+}
+
+/* Update message count display */
+function updateMsgCount(){
+  const count = getMessages().length;
+  msgCount.textContent = count;
+}
+
+/* Tie msg count updates to input */
+cipherInput.addEventListener('input', ()=> {
+  updateMsgCount();
+  // refresh preview if live preview is enabled
+  if (livePreviewToggle.checked) updateLivePreviewDebounced();
+});
+
+/* =========================
+   Caesar logic & scoring
+   ========================= */
+/* Efficient caesar normalization: supports shifts >26 by mod 26 */
+function caesarShift(text, shift){
+  const s = ((shift % 26) + 26) % 26;
+  let out = '';
+  for (let i=0;i<text.length;i++){
+    const ch = text[i];
+    const code = ch.charCodeAt(0);
+    if (code >= 65 && code <= 90){
+      out += String.fromCharCode( ( (code - 65 - s + 26) % 26 ) + 65 );
+    } else if (code >=97 && code <=122){
+      out += String.fromCharCode( ( (code - 97 - s + 26) % 26 ) + 97 );
+    } else {
+      out += ch;
+    }
+  }
+  return out;
+}
+
+/* English frequency reference (for scoring) */
+const englishFreq = {
+  a: 8.167, b:1.492, c:2.782, d:4.253, e:12.702, f:2.228, g:2.015,
+  h:6.094, i:6.966, j:0.153, k:0.772, l:4.025, m:2.406, n:6.749,
+  o:7.507, p:1.929, q:0.095, r:5.987, s:6.327, t:9.056, u:2.758,
+  v:0.978, w:2.360, x:0.150, y:1.974, z:0.074
+};
+
+/* Compute chi-squared score — lower is better (closer to english) */
+function chiSquaredScore(text){
+  const counts = {};
+  let total = 0;
+  for (let ch of text.toLowerCase()){
+    if (ch >= 'a' && ch <= 'z'){
+      counts[ch] = (counts[ch] || 0) + 1;
+      total++;
+    }
+  }
+  if (total === 0) return Infinity;
+  let score = 0;
+  for (let c in englishFreq){
+    const observed = counts[c] || 0;
+    const expected = englishFreq[c] * total / 100;
+    const diff = observed - expected;
+    score += (diff * diff) / (expected || 1);
+  }
+  return score;
+}
+
+/* Generate all shifts for a single message but returns array with score */
+function generateShiftsForMessage(msg, maxShift=100){
+  const arr = [];
+  for (let s=1; s<=maxShift; s++){
+    const dec = caesarShift(msg, s);
+    const score = chiSquaredScore(dec);
+    arr.push({shift:s, decoded:dec, score});
+  }
+  // find best (lowest score)
+  let bestIndex = 0;
+  for (let i=1;i<arr.length;i++) if (arr[i].score < arr[bestIndex].score) bestIndex = i;
+  return {shifts:arr, bestIndex};
+}
+
+/* =========================
+   Rendering & UI updates
+   ========================= */
+
+/* Live preview uses currently selected shift and shows first message (or single input) */
+function updateLivePreview(){
+  const messages = getMessages();
+  if (messages.length === 0){
+    livePreview.textContent = 'Nothing to preview yet — paste a message.';
+    return;
+  }
+  const shift = parseInt(shiftNumber.value) || 1;
+  const target = messages[0];
+  const decoded = caesarShift(target, shift);
+  livePreview.textContent = decoded;
+}
+
+/* Render results into accordion list. allResults is array per message. */
+function renderResults(){
+  const token = ++renderToken;
+  // clear
+  resultsEl.innerHTML = '';
+  if (!allResults.length){
+    resultsEl.textContent = 'No results yet. Use Decode Selected, Auto-detect, or All shifts.';
+    return;
+  }
+  
+  // Check if we should use selected shift or best shift
+  const useSelectedShift = showSelectedShift.checked;
+  const selectedShift = parseInt(shiftNumber.value) || 1;
+  
+  // Create a single continuous stream of all decoded messages
+  const decodedTexts = allResults.map(item => {
+    if (useSelectedShift) {
+      // Find the decoded text for the selected shift
+      const shiftData = item.shifts.find(s => s.shift === selectedShift);
+      return shiftData ? shiftData.decoded : caesarShift(item.original, selectedShift);
+    } else {
+      // Use best shift
+      const bestShift = item.shifts[item.bestShiftIndex];
+      return bestShift.decoded;
+    }
+  }).join('\n\n');
+  
+  resultsEl.textContent = decodedTexts;
+}
+
+/* =========================
+   Actions (buttons)
+   ========================= */
+
+/* Decode Selected (applies per message in batch mode, otherwise single) */
+decodeSingleBtn.addEventListener('click', async ()=>{
+  const messages = getMessages();
+  if (!messages.length){ alert('Please paste at least one message.'); return; }
+  const shift = parseInt(shiftNumber.value) || 1;
+  allResults = messages.map(msg => {
+    // compute only what we need: bestIndex & shifts around best; but keep full shifts for "show all"
+    // To be responsive we pre-generate only best + neighbors via scoring across 1..100 but avoid storing all decoded strings initially.
+    // We'll compute decoded for all shifts but store them compressed (score + shift) to be expanded when needed.
+    // For simplicity & transparency we generate shifts with scores, but handle progressive rendering elsewhere.
+    const {shifts, bestIndex} = generateShiftsForMessage(msg, 100);
+    return { original: msg, shifts, bestShiftIndex: bestIndex, bestShift: shifts[bestIndex] };
+  });
+  renderResults();
+  // Update preview to reflect selected shift
+  updateLivePreview();
+});
+
+/* Show All (generate all shifts but progressive render across messages) */
+decodeAllBtn.addEventListener('click', ()=>{
+  const messages = getMessages();
+  if (!messages.length){ alert('Please paste a message first.'); return; }
+  // Generate all shifts for each message progressively to avoid blocking
+  allResults = [];
+  progressBar.style.width = '0%';
+  const token = ++renderToken;
+  let processed = 0;
+
+  function processNext(){
+    if (token !== renderToken) return; // canceled
+    if (processed >= messages.length){
+      renderResults();
+      progressBar.style.width = '0%';
+      return;
+    }
+    const msg = messages[processed];
+    // generate fully for this message (blocking per message, but few messages ok). Use setTimeout to yield.
+    setTimeout(()=> {
+      const {shifts, bestIndex} = generateShiftsForMessage(msg, 100);
+      allResults.push({original: msg, shifts, bestShiftIndex: bestIndex});
+      processed++;
+      progressBar.style.width = `${Math.round((processed/messages.length)*100)}%`;
+      processNext();
+    }, 20);
+  }
+  processNext();
+});
+
+/* Auto-detect best shift — compute best per message & set UI to first message's best */
+detectBestBtn.addEventListener('click', ()=>{
+  const messages = getMessages();
+  if (!messages.length){ alert('Please paste a message first.'); return; }
+  allResults = [];
+  // We'll progressively analyze messages and find their best
+  let idx = 0;
+  const token = ++renderToken;
+  function next(){
+    if (token !== renderToken) return;
+    if (idx >= messages.length){
+      // Render results and set UI shiftNumber to first message's best
+      renderResults();
+      if (allResults.length && allResults[0].shifts && allResults[0].bestShiftIndex != null){
+        const best = allResults[0].shifts[allResults[0].bestShiftIndex].shift;
+        shiftNumber.value = best; shiftRange.value = best;
+        updateLivePreview();
+      }
+      progressBar.style.width = '0%';
+      return;
+    }
+    const msg = messages[idx];
+    setTimeout(()=> {
+      const {shifts, bestIndex} = generateShiftsForMessage(msg, 100);
+      allResults.push({original: msg, shifts, bestShiftIndex: bestIndex});
+      idx++;
+      progressBar.style.width = `${Math.round((idx/messages.length)*100)}%`;
+      next();
+    }, 10);
+  }
+  next();
+});
+
+/* Copy All visible decoded bests */
+copyAllBtn.addEventListener('click', ()=>{
+  if (!allResults.length){ alert('No decoded results to copy.'); return; }
+  // Get the text directly from the results element
+  const text = resultsEl.textContent;
+  navigator.clipboard.writeText(text).then(()=> {
+    copyAllBtn.textContent='✓';
+    setTimeout(()=>copyAllBtn.textContent='📋',1200);
+  }).catch(()=> alert('Copy failed'));
+});
+
+/* Clear */
+clearBtn.addEventListener('click', ()=>{
+  cipherInput.value = '';
+  allResults = [];
+  renderResults();
+  updateMsgCount();
+  livePreview.textContent = 'Nothing to preview yet — paste a message.';
+});
+
+/* Update message count on load */
+updateMsgCount();
+
+/* Initialize with sample placeholder for convenience (optional) */
+if (!cipherInput.value.trim()){
+  cipherInput.value = 'Vv. Xrwjmib iiigvvj e lmgevwlxyn kvbsp qw xaw Uwrrmmq Ucmik';
+  updateMsgCount();
+  updateLivePreview();
+}
+
+/* Update live preview on load */
+updateLivePreview();
+
+/* Allow Ctrl/Cmd+Enter to decode */
+cipherInput.addEventListener('keydown', (e)=>{
+  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+    decodeSingleBtn.click();
+  }
+});
+
+/* Keep preview synced when user toggles live preview */
+livePreviewToggle.addEventListener('change', ()=> {
+  if (livePreviewToggle.checked) updateLivePreview();
+});
+
+/* Toggle between best shift and selected shift */
+showSelectedShift.addEventListener('change', ()=> {
+  if (allResults.length > 0) {
+    renderResults();
+  }
+});
+
+/* Expose a small keyboard shortcuts: Alt+D = decode selected, Alt+A = auto-detect */
+document.addEventListener('keydown',(e)=>{
+  if (e.altKey && !e.shiftKey && e.key.toLowerCase()==='d'){ e.preventDefault(); decodeSingleBtn.click(); }
+  if (e.altKey && !e.shiftKey && e.key.toLowerCase()==='a'){ e.preventDefault(); detectBestBtn.click(); }
+});
+
+/* For accessibility: announce via live region whenever results change */
+function announce(msg){
+  // create temporary live region
+  const r = document.createElement('div');
+  r.setAttribute('aria-live','polite');
+  r.style.position='absolute'; r.style.left='-9999px';
+  r.textContent = msg;
+  document.body.appendChild(r);
+  setTimeout(()=>document.body.removeChild(r), 800);
+}
+
+/* When results change (detectBest or decode), announce */
+const observer = new MutationObserver(()=> announce('Decoded results updated'));
+observer.observe(resultsEl, {childList:true, subtree:true});
+
+/* When the user drags the slider, update preview live; we already wire that with input events */
+
+/* Final: when the page loads, auto-detect best for sample if present */
+window.addEventListener('load', ()=> {
+  // Optionally run auto-detect for the sample text so user sees functionality immediately:
+  // detectBestBtn.click(); // commented to avoid heavy work at load
+});
+</script>
+</body>
+</html>
