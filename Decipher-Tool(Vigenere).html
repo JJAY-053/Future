@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vigenère Cipher Decryptor</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .container {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            padding: 40px;
+            max-width: 800px;
+            width: 100%;
+        }
+
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 10px;
+            font-size: 2em;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 0.9em;
+        }
+
+        .input-group {
+            margin-bottom: 25px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 600;
+            font-size: 0.95em;
+        }
+
+        textarea, input[type="text"] {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+
+        textarea:focus, input[type="text"]:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 150px;
+        }
+
+        input[type="text"] {
+            text-transform: uppercase;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 25px;
+        }
+
+        button {
+            flex: 1;
+            padding: 14px 24px;
+            font-size: 1em;
+            font-weight: 600;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .decrypt-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .decrypt-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .clear-btn {
+            background: #f5f5f5;
+            color: #333;
+        }
+
+        .clear-btn:hover {
+            background: #e0e0e0;
+        }
+
+        .error-message {
+            display: none;
+            background: #fee;
+            color: #c33;
+            padding: 12px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            border-left: 4px solid #c33;
+        }
+
+        .error-message.show {
+            display: block;
+        }
+
+        .info-box {
+            background: #f0f4ff;
+            border-left: 4px solid #667eea;
+            padding: 15px;
+            border-radius: 6px;
+            margin-top: 25px;
+        }
+
+        .info-box h3 {
+            color: #667eea;
+            margin-bottom: 8px;
+            font-size: 1em;
+        }
+
+        .info-box p {
+            color: #555;
+            font-size: 0.9em;
+            line-height: 1.6;
+        }
+
+        .mode-toggle {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 6px;
+            align-items: center;
+        }
+
+        .mode-toggle label {
+            margin: 0;
+            font-size: 0.9em;
+            color: #555;
+        }
+
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 50px;
+            height: 24px;
+        }
+
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: 0.4s;
+            border-radius: 24px;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: 0.4s;
+            border-radius: 50%;
+        }
+
+        input:checked + .slider {
+            background-color: #667eea;
+        }
+
+        input:checked + .slider:before {
+            transform: translateX(26px);
+        }
+
+        @media (max-width: 600px) {
+            .container {
+                padding: 20px;
+            }
+
+            h1 {
+                font-size: 1.5em;
+            }
+
+            .button-group {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔓 Vigenère Cipher Decryptor</h1>
+        <p class="subtitle">Decrypt messages encrypted with the Vigenère cipher</p>
+
+        <div class="error-message" id="errorMessage"></div>
+
+        <div class="mode-toggle">
+            <label>Decryption Mode:</label>
+            <span id="modeLabel" style="font-weight: 600; color: #667eea;">Continuous Text</span>
+            <label class="toggle-switch">
+                <input type="checkbox" id="modeToggle">
+                <span class="slider"></span>
+            </label>
+            <span style="font-size: 0.85em; color: #666;">(Toggle for line-by-line mode)</span>
+        </div>
+
+        <div class="input-group">
+            <label for="encryptedText">Encrypted Message(s):</label>
+            <textarea 
+                id="encryptedText" 
+                placeholder="Enter your encrypted message here... Multiple lines are supported."
+            ></textarea>
+        </div>
+
+        <div class="input-group">
+            <label for="keyInput">Vigenère Key:</label>
+            <input 
+                type="text" 
+                id="keyInput" 
+                placeholder="Enter the decryption key (letters only)"
+            />
+        </div>
+
+        <div class="button-group">
+            <button class="decrypt-btn" onclick="decryptMessage()">Decrypt</button>
+            <button class="clear-btn" onclick="clearAll()">Clear All</button>
+        </div>
+
+        <div class="input-group">
+            <label for="decryptedText">Decrypted Output:</label>
+            <textarea 
+                id="decryptedText" 
+                readonly 
+                placeholder="Your decrypted message will appear here..."
+            ></textarea>
+        </div>
+
+        <div class="info-box">
+            <h3>ℹ️ How It Works</h3>
+            <p>
+                <strong>Continuous Mode (Default):</strong> The key continues across all text, including line breaks. 
+                This is standard Vigenère behavior where the entire message is treated as one continuous sequence.
+            </p>
+            <p style="margin-top: 10px;">
+                <strong>Line-by-Line Mode:</strong> Each line is decrypted independently with the key restarting 
+                from the beginning for each new line. Use this mode when each line was encrypted separately.
+            </p>
+        </div>
+    </div>
+
+    <script>
+        function decryptMessage() {
+            const encryptedText = document.getElementById('encryptedText').value;
+            const key = document.getElementById('keyInput').value.trim();
+            const lineByLine = document.getElementById('modeToggle').checked;
+            
+            hideError();
+            
+            if (!encryptedText || encryptedText.trim() === '') {
+                showError('Please enter an encrypted message to decrypt.');
+                return;
+            }
+            
+            if (!key || key === '') {
+                showError('Please enter a decryption key.');
+                return;
+            }
+            
+            if (!/^[A-Za-z]+$/.test(key)) {
+                showError('The key must contain only alphabetic characters (A-Z).');
+                return;
+            }
+            
+            let decryptedText;
+            if (lineByLine) {
+                const lines = encryptedText.split('\n');
+                const decryptedLines = lines.map(line => decryptVigenere(line, key));
+                decryptedText = decryptedLines.join('\n');
+            } else {
+                decryptedText = decryptVigenere(encryptedText, key);
+            }
+            
+            document.getElementById('decryptedText').value = decryptedText;
+        }
+        
+        function decryptVigenere(ciphertext, key) {
+            const keyUpper = key.toUpperCase();
+            let plaintext = '';
+            let keyIndex = 0;
+            
+            for (let i = 0; i < ciphertext.length; i++) {
+                const char = ciphertext[i];
+                
+                if (/[A-Za-z]/.test(char)) {
+                    const isUpperCase = char === char.toUpperCase();
+                    const baseCharCode = isUpperCase ? 65 : 97;
+                    
+                    const cipherValue = char.toUpperCase().charCodeAt(0) - 65;
+                    const keyChar = keyUpper[keyIndex % keyUpper.length];
+                    const keyValue = keyChar.charCodeAt(0) - 65;
+                    
+                    const plainValue = (cipherValue - keyValue + 26) % 26;
+                    const plainChar = String.fromCharCode(plainValue + baseCharCode);
+                    plaintext += plainChar;
+                    
+                    keyIndex++;
+                } else {
+                    plaintext += char;
+                }
+            }
+            
+            return plaintext;
+        }
+        
+        function showError(message) {
+            const errorDiv = document.getElementById('errorMessage');
+            errorDiv.textContent = message;
+            errorDiv.classList.add('show');
+        }
+        
+        function hideError() {
+            const errorDiv = document.getElementById('errorMessage');
+            errorDiv.classList.remove('show');
+        }
+        
+        function clearAll() {
+            document.getElementById('encryptedText').value = '';
+            document.getElementById('keyInput').value = '';
+            document.getElementById('decryptedText').value = '';
+            hideError();
+        }
+        
+        document.getElementById('keyInput').addEventListener('input', function(e) {
+            this.value = this.value.replace(/[^A-Za-z]/g, '').toUpperCase();
+        });
+        
+        document.getElementById('keyInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                decryptMessage();
+            }
+        });
+
+        document.getElementById('modeToggle').addEventListener('change', function() {
+            const label = document.getElementById('modeLabel');
+            if (this.checked) {
+                label.textContent = 'Line-by-Line';
+                label.style.color = '#764ba2';
+            } else {
+                label.textContent = 'Continuous Text';
+                label.style.color = '#667eea';
+            }
+        });
+    </script>
+</body>
+</html>
